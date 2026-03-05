@@ -1,0 +1,33 @@
+# Bio-Rad D-10 — HbA1c (Hemoglobin A1c)
+#
+# This fixture represents a complete ASTM E1394 message from a Bio-Rad D-10
+# HPLC hemoglobin analyzer reporting HbA1c and hemoglobin fractions.
+#
+# Protocol: LIS1-A / LIS2-A2 (ASTM E1381/E1394 compatible)
+# Delimiters: | (field), \ (repeat), ^ (component), & (escape)
+# Test ID format: ^^^<PeakName>^AREA (chromatographic peak-based reporting)
+# Specimen barcode: 8-digit Code128
+#
+# D-10 test code reference (from research/04-chemistry-immunoassay-analyzers.md):
+#   A1c = HbA1c (primary result), A2 = HbA2, F = HbF (fetal),
+#   A0 = non-glycated fraction, TOTAL = total area (always 100%)
+#
+# Notes:
+# - Bio-Rad D-10 identifies itself as D10^<serial>^<software_version>
+# - Uses RSUP in processing ID for result uploads
+# - The D-10 exports ALL fractions, not just HbA1c
+# - The specimen ID in O.3 may include position/injection info appended by the instrument
+# - A1c 5.4% is within normal non-diabetic range (4.0-6.0%)
+# - A2 2.8% is within normal range (2.0-3.3%)
+# - F 0.3% is normal for adults (<1.0%)
+# - Terminator uses F (last request processed) — typical for unsolicited uploads
+
+H|\^&|||D10^07^3.00|||||host|RSUP|P|1|20260305091500
+P|1||
+O|1||45678901-01-20260305-LIS001||^^^4|R|20260305085000|||||N||||Whole Blood|||||||20260305091500||||F
+R|1|^^^A1c^AREA|5.4|%||N||F||||20260305091200
+R|2|^^^A2^AREA|2.8|%||N||F||||20260305091200
+R|3|^^^F^AREA|0.3|%||N||F||||20260305091200
+R|4|^^^A0^AREA|91.5|%||N||F||||20260305091200
+R|5|^^^TOTAL^AREA|100.0|%||N||F||||20260305091200
+L|1|F

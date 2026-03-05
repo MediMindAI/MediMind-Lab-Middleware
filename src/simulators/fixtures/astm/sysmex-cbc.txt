@@ -1,0 +1,40 @@
+# Sysmex XN-550 — Complete Blood Count (CBC) with 6-part Differential
+#
+# This fixture represents a complete ASTM E1394 message from a Sysmex XN-550
+# hematology analyzer. It contains 20 CBC+DIFF parameters for a healthy adult male.
+#
+# Protocol: ASTM E1381-02 / E1394-97 (CLSI LIS1-A / LIS2-A2)
+# Delimiters: | (field), \ (repeat), ^ (component), & (escape)
+# Test ID format: ^^^<Abbreviation> (Sysmex factory-default test names)
+# Specimen barcode: 8-digit Code128 (per MediMind EMR spec)
+#
+# Notes:
+# - Sysmex uses 10*3/uL notation for WBC/PLT and 10*6/uL for RBC
+# - R record fields: R|seq|^^^TestCode|value|unit|refRange|flag||status||operator|dateCompleted|instrumentID
+# - All values are within normal adult male ranges
+# - No transport framing (STX/ETX/checksums) — this is the record-layer content only
+
+H|\^&|||XN-550^Sysmex^00-21^^^^XN-550 01^SN24001234|||||||LIS2-A2|P|1|20260305143000
+P|1||||SMITH^JOHN^A||19850315|M
+O|1|12345678||^^^WBC\^^^RBC\^^^HGB\^^^HCT\^^^MCV\^^^MCH\^^^MCHC\^^^PLT\^^^NEUT%\^^^LYMPH%\^^^MONO%\^^^EO%\^^^BASO%\^^^NEUT#\^^^LYMPH#\^^^MONO#\^^^EO#\^^^BASO#\^^^RDW-SD\^^^RDW-CV|R|20260305142500|20260305142800||||A||||Whole Blood|||||||20260305143000||||F
+R|1|^^^WBC|7.45|10*3/uL|4.5-11.0|N||F||LAB01||20260305143000|XN-550
+R|2|^^^RBC|5.12|10*6/uL|4.6-6.2|N||F||LAB01||20260305143000|XN-550
+R|3|^^^HGB|15.2|g/dL|13.0-18.0|N||F||LAB01||20260305143000|XN-550
+R|4|^^^HCT|44.8|%|40-54|N||F||LAB01||20260305143000|XN-550
+R|5|^^^MCV|87.5|fL|80-100|N||F||LAB01||20260305143000|XN-550
+R|6|^^^MCH|29.7|pg|27-32|N||F||LAB01||20260305143000|XN-550
+R|7|^^^MCHC|33.9|g/dL|32-36|N||F||LAB01||20260305143000|XN-550
+R|8|^^^PLT|238|10*3/uL|150-400|N||F||LAB01||20260305143000|XN-550
+R|9|^^^RDW-SD|42.1|fL|35.0-46.0|N||F||LAB01||20260305143000|XN-550
+R|10|^^^RDW-CV|13.4|%|11.5-15.0|N||F||LAB01||20260305143000|XN-550
+R|11|^^^NEUT%|57.8|%|40-70|N||F||LAB01||20260305143000|XN-550
+R|12|^^^LYMPH%|29.3|%|20-40|N||F||LAB01||20260305143000|XN-550
+R|13|^^^MONO%|7.5|%|2-8|N||F||LAB01||20260305143000|XN-550
+R|14|^^^EO%|3.2|%|0-4|N||F||LAB01||20260305143000|XN-550
+R|15|^^^BASO%|0.4|%|0-1|N||F||LAB01||20260305143000|XN-550
+R|16|^^^NEUT#|4.31|10*3/uL|1.5-8.0|N||F||LAB01||20260305143000|XN-550
+R|17|^^^LYMPH#|2.18|10*3/uL|1.0-4.0|N||F||LAB01||20260305143000|XN-550
+R|18|^^^MONO#|0.56|10*3/uL|0.2-1.0|N||F||LAB01||20260305143000|XN-550
+R|19|^^^EO#|0.24|10*3/uL|0.0-0.5|N||F||LAB01||20260305143000|XN-550
+R|20|^^^BASO#|0.03|10*3/uL|0.0-0.2|N||F||LAB01||20260305143000|XN-550
+L|1|N

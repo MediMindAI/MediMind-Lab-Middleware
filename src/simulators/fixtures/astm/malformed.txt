@@ -1,0 +1,53 @@
+# Malformed ASTM Messages — Error Testing
+#
+# This fixture contains intentionally broken ASTM messages for testing the parser's
+# error handling. Each case is separated by a blank line and labeled with a comment.
+# The parser should log an error for each case but never crash.
+
+# Case 1: Missing header — message starts with P record instead of H
+P|1||PAT-001||DOE^JOHN||19850315|M
+O|1|99990001||^^^WBC|R||||||N||||||||||||F
+R|1|^^^WBC|7.5|10*3/uL|4.5-11.0|N||F||||20260305143000
+L|1|N
+
+# Case 2: Corrupt R record — missing value and units fields
+H|\^&|||TestAnalyzer^1.0|||||||LIS2-A2|P|1|20260305150000
+P|1||
+O|1|99990002||^^^GLU|R||||||N||||||||||||F
+R|1|^^^GLU||
+R|2|^^^CREA|0.9|mg/dL|0.6-1.2|N||F||||20260305150000
+L|1|N
+
+# Case 3: Invalid characters in result value
+H|\^&|||TestAnalyzer^1.0|||||||LIS2-A2|P|1|20260305150100
+P|1||
+O|1|99990003||^^^HGB|R||||||N||||||||||||F
+R|1|^^^HGB|##ERR##|g/dL|12.0-16.0|||F||||20260305150100
+L|1|N
+
+# Case 4: Empty message — only header and terminator, no patient/order/result
+H|\^&|||TestAnalyzer^1.0|||||||LIS2-A2|P|1|20260305150200
+L|1|N
+
+# Case 5: Missing terminator record — message ends abruptly after R record
+H|\^&|||TestAnalyzer^1.0|||||||LIS2-A2|P|1|20260305150300
+P|1||
+O|1|99990005||^^^PLT|R||||||N||||||||||||F
+R|1|^^^PLT|245|10*3/uL|150-400|N||F||||20260305150300
+
+# Case 6: Completely empty — no records at all (blank input)
+
+# Case 7: Garbled delimiter declaration in header
+H|@#$|||TestAnalyzer^1.0|||||||LIS2-A2|P|1|20260305150400
+P|1||
+O|1|99990007||^^^WBC|R||||||N||||||||||||F
+R|1|^^^WBC|6.0|10*3/uL|4.5-11.0|N||F||||20260305150400
+L|1|N
+
+# Case 8: Duplicate sequence numbers in R records
+H|\^&|||TestAnalyzer^1.0|||||||LIS2-A2|P|1|20260305150500
+P|1||
+O|1|99990008||^^^WBC\^^^RBC|R||||||N||||||||||||F
+R|1|^^^WBC|7.0|10*3/uL|4.5-11.0|N||F||||20260305150500
+R|1|^^^RBC|4.5|10*6/uL|4.6-6.2|N||F||||20260305150500
+L|1|N

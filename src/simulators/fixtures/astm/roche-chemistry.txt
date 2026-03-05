@@ -1,0 +1,33 @@
+# Roche Cobas c111 — Clinical Chemistry Panel
+#
+# This fixture represents a complete ASTM E1394 message from a Roche cobas c111
+# clinical chemistry analyzer with a common chemistry panel.
+#
+# Protocol: ASTM E1381-97 / E1394-97 (LIS1-A / LIS2-A2)
+# Delimiters: | (field), \ (repeat), ^ (component), & (escape)
+# Test ID format: ^^^<ACN> where ACN is a 3-digit Roche Application Code Number
+# Specimen barcode: 8-digit Code128
+#
+# ACN code reference (from research/04-chemistry-immunoassay-analyzers.md):
+#   401 = Glucose, 404 = Urea/BUN, 402 = Creatinine, 416 = ALT,
+#   417 = AST, 407 = Total Protein, 413 = Albumin, 480 = Total Bilirubin
+#
+# Notes:
+# - Roche c111 identifies itself as c111^Roche^c111^<version>^1^<serial>
+# - Uses RSUPL^BATCH in the processing ID field for result uploads
+# - Reference ranges are NOT sent by default on c111 (empty R.6 field)
+# - Operator $SYS$ means system-calculated (auto-validated) result
+# - All values within normal adult ranges
+
+H|\^&|||c111^Roche^c111^4.3.0.1835^1^16850|||||host|RSUPL^BATCH|P|1|20260305101500
+P|1||PAT-20260305||JONES^MARIA^L||19900712|F
+O|1||23456789||^^^401\^^^404\^^^402\^^^416\^^^417\^^^407\^^^413\^^^480|R|20260305094500|||||N||||SERUM|||||||20260305101500||||F
+R|1|^^^401|92|mg/dL||N||F||$SYS$||20260305100800
+R|2|^^^404|18.5|mg/dL||N||F||$SYS$||20260305100900
+R|3|^^^402|0.85|mg/dL||N||F||$SYS$||20260305101000
+R|4|^^^416|24|U/L||N||F||$SYS$||20260305101100
+R|5|^^^417|22|U/L||N||F||$SYS$||20260305101200
+R|6|^^^407|7.1|g/dL||N||F||$SYS$||20260305101300
+R|7|^^^413|4.2|g/dL||N||F||$SYS$||20260305101400
+R|8|^^^480|0.8|mg/dL||N||F||$SYS$||20260305101500
+L|1|N

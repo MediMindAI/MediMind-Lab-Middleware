@@ -1,0 +1,27 @@
+# Roche Cobas e411 — Immunoassay Panel (Thyroid + Ferritin)
+#
+# This fixture represents a complete ASTM E1394 message from a Roche cobas e411
+# electrochemiluminescence immunoassay analyzer.
+#
+# Protocol: ASTM E1381-91 / E1394-91 (functionally same as E1381-97/E1394-97)
+# Delimiters: | (field), \ (repeat), ^ (component), & (escape)
+# Test ID format: ^^^<test_number> where test_number is a Roche Elecsys test number
+# Specimen barcode: 8-digit Code128
+#
+# Elecsys test number reference (from research/04-chemistry-immunoassay-analyzers.md):
+#   146 = TSH, 142 = Free T4, 143 = Free T3, 171 = Ferritin
+#
+# Notes:
+# - Roche e411 identifies itself as cobas-e411^1 in the Header
+# - Uses RSUPL^BATCH in processing ID for result uploads
+# - Reference ranges use ^ as component separator (e.g., 0.27^4.20 means 0.27-4.20)
+# - All values within normal adult ranges
+
+H|\^&|||cobas-e411^1|||||host|RSUPL^BATCH|P|1|20260305111530
+P|1||PAT-20260305||GARCIA^CARLOS||19750923|M
+O|1||34567890||^^^146\^^^142\^^^143\^^^171|R|20260305104500|||||N||||SERUM|||||||20260305111530||||F
+R|1|^^^146|2.18|uIU/mL|0.27^4.20|N||F||||20260305110800
+R|2|^^^142|1.15|ng/dL|0.93^1.70|N||F||||20260305111000
+R|3|^^^143|3.1|pg/mL|2.0^4.4|N||F||||20260305111200
+R|4|^^^171|185.0|ng/mL|30^400|N||F||||20260305111530
+L|1|N

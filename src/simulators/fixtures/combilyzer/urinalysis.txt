@@ -1,0 +1,46 @@
+# Combilyzer 13 (77 Elektronika / Human) — Urinalysis Results
+#
+# This fixture represents a complete result message from a Combilyzer 13 urine
+# strip analyzer. The Combilyzer 13 uses a simplified ASTM-like proprietary format
+# over serial RS-232 (9600 baud, 8-N-1). It is UNIDIRECTIONAL — results only,
+# no order download or query support.
+#
+# The format uses ASTM E1394-style record types (H/P/O/R/L) but simplified:
+# - No ASTM E1381 transport framing (no ENQ/ACK/STX/ETX/checksums)
+# - Data is sent as plain text lines terminated by CR LF
+# - Fewer fields per record than full ASTM E1394
+# - No bidirectional handshake — the analyzer just sends when results are ready
+#
+# Record types:
+#   H = Header (instrument ID, delimiter definition)
+#   P = Patient (sequence only — Combilyzer does not store patient demographics)
+#   O = Order (specimen ID / barcode from scanned strip)
+#   R = Result (one per urinalysis parameter)
+#   L = Terminator (end of message)
+#
+# Delimiters: | (field), \ (repeat), ^ (component), & (escape) — same as ASTM
+# Test ID format: ^^^<ParameterCode> (e.g., ^^^LEU, ^^^GLU)
+#
+# The Combilyzer 13 measures up to 13 parameters on a Combina 13 test strip.
+# Values are semi-quantitative (e.g., "Negative", "1+", "2+", "3+") or quantitative.
+#
+# NOTE: Lines below are separated by newlines for readability.
+# In real serial transmission, each line is terminated by CR LF (0x0D 0x0A).
+
+H|\^&|||Combilyzer13^Human^SN-C13-00187|||||||P|1|20260305144500
+P|1
+O|1|78901234||^^^UA|R|20260305144200|20260305144500||||A
+R|1|^^^BIL|Negative||mg/dL||N||F
+R|2|^^^URO|Normal|0.2|mg/dL|0.1-1.0|N||F
+R|3|^^^KET|Negative||mg/dL||N||F
+R|4|^^^BLD|Negative||Ery/uL||N||F
+R|5|^^^PRO|Negative||mg/dL||N||F
+R|6|^^^NIT|Negative||||N||F
+R|7|^^^LEU|Negative||WBC/uL||N||F
+R|8|^^^GLU|Normal||mg/dL||N||F
+R|9|^^^SG|1.018||||||F
+R|10|^^^pH|6.0||||||F
+R|11|^^^ASC|Negative||mg/dL||N||F
+R|12|^^^CRE|100|100|mg/dL||N||F
+R|13|^^^ALB|Negative||mg/dL||N||F
+L|1|N

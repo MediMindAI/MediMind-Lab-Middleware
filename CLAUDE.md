@@ -477,3 +477,10 @@ Full specification: `specs/043-lab-middleware/spec.md`
 | Results don't appear in EMR | Check Medplum Cloud for new Observations, verify barcode match |
 | Middleware crashes on start | Check `config/analyzers.json` for JSON syntax errors |
 | Queue growing but not sending | Check internet connectivity, verify Medplum credentials |
+
+## Active Technologies
+- TypeScript 5.7+ / Node.js 20+ (ESM modules, strict mode) + serialport v12+, express v4, better-sqlite3 v11, @medplum/core v4, winston v3, dotenv v16 (043-lab-middleware)
+- SQLite (better-sqlite3) for offline queue + message audit log (043-lab-middleware)
+
+## Recent Changes
+- 043-lab-middleware: Added TypeScript 5.7+ / Node.js 20+ (ESM modules, strict mode) + serialport v12+, express v4, better-sqlite3 v11, @medplum/core v4, winston v3, dotenv v16

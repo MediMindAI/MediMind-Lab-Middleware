@@ -1,0 +1,51 @@
+# Mindray BC-3510 — Complete Blood Count (CBC) with 3-Part Differential
+#
+# This fixture represents a complete HL7v2 ORU^R01 message from a Mindray BC-3510
+# hematology analyzer. The BC-3510 is a 3-part differential analyzer, meaning it
+# classifies WBCs into three groups: Lymphocytes, Mid-cells, and Granulocytes.
+#
+# Protocol: HL7 v2.3.1 over MLLP (0x0B start, 0x1C 0x0D end)
+# Transport: Serial RS-232 (9600 baud, 8-N-1) or TCP/IP
+# Direction: Analyzer -> Middleware (unsolicited result)
+# Message type: ORU^R01 (Observation Result Unsolicited)
+#
+# Segment separator: \r (0x0D carriage return)
+# Field separator: | (pipe)
+# Component separator: ^ (caret)
+# Encoding chars: ^~\&
+#
+# Barcode location: OBR-2 and OBR-3 (Placer/Filler Order Number) = specimen barcode
+# OBX fields: OBX-3 = test code, OBX-5 = value, OBX-6 = unit, OBX-7 = ref range,
+#             OBX-8 = abnormal flag (N/H/L/HH/LL), OBX-11 = status (F = Final)
+#
+# This fixture includes a mix of normal and abnormal values to test flag handling.
+# WBC is HIGH (H), HGB is LOW (L), all others normal (N).
+#
+# NOTE: This file contains the raw HL7v2 message content only.
+# In real transmission, it would be wrapped in MLLP framing: 0x0B + content + 0x1C + 0x0D
+# Segments below are separated by newlines for readability; in real messages they are
+# separated by \r (0x0D) only.
+
+MSH|^~\&|BC-3510|MAIN_LAB|MediMind|HOSPITAL|20260305103000||ORU^R01|BC3510-00042|P|2.3.1|||AL|NE
+PID|1||PAT001^^^HOSP||BERIDZE^GIORGI||19850315|M
+PV1|1|O
+OBR|1|12345678|12345678|CBC^Complete Blood Count^L|||20260305102800||||||||||||||20260305103000||HM|F
+OBX|1|NM|WBC^WBC^L|1|12.8|10^9/L|4.0-10.0|H|||F|||20260305103000
+OBX|2|NM|Lymph#^Lymphocyte Count^L|1|2.3|10^9/L|0.8-4.0|N|||F|||20260305103000
+OBX|3|NM|Mid#^Mid-Cell Count^L|1|0.6|10^9/L|0.1-1.5|N|||F|||20260305103000
+OBX|4|NM|Gran#^Granulocyte Count^L|1|9.9|10^9/L|2.0-7.0|H|||F|||20260305103000
+OBX|5|NM|Lymph%^Lymphocyte Percentage^L|1|18.0|%|20.0-40.0|L|||F|||20260305103000
+OBX|6|NM|Mid%^Mid-Cell Percentage^L|1|4.7|%|3.0-15.0|N|||F|||20260305103000
+OBX|7|NM|Gran%^Granulocyte Percentage^L|1|77.3|%|50.0-70.0|H|||F|||20260305103000
+OBX|8|NM|RBC^RBC^L|1|4.65|10^12/L|3.80-5.80|N|||F|||20260305103000
+OBX|9|NM|HGB^Hemoglobin^L|1|11.2|g/dL|12.0-17.0|L|||F|||20260305103000
+OBX|10|NM|HCT^Hematocrit^L|1|35.1|%|36.0-52.0|L|||F|||20260305103000
+OBX|11|NM|MCV^MCV^L|1|75.5|fL|80.0-100.0|L|||F|||20260305103000
+OBX|12|NM|MCH^MCH^L|1|24.1|pg|27.0-34.0|L|||F|||20260305103000
+OBX|13|NM|MCHC^MCHC^L|1|31.9|g/dL|32.0-36.0|L|||F|||20260305103000
+OBX|14|NM|RDW-CV^RDW-CV^L|1|16.8|%|11.0-16.0|H|||F|||20260305103000
+OBX|15|NM|RDW-SD^RDW-SD^L|1|48.2|fL|35.0-56.0|N|||F|||20260305103000
+OBX|16|NM|PLT^Platelets^L|1|195|10^9/L|100-400|N|||F|||20260305103000
+OBX|17|NM|MPV^MPV^L|1|10.4|fL|6.5-12.0|N|||F|||20260305103000
+OBX|18|NM|PDW^PDW^L|1|14.1|fL|9.0-17.0|N|||F|||20260305103000
+OBX|19|NM|PCT^Plateletcrit^L|1|0.20|%|0.10-0.50|N|||F|||20260305103000

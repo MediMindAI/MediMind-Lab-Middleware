@@ -1,0 +1,32 @@
+# Snibe Maglumi X3 — Immunoassay (Thyroid + Ferritin + Vitamin D)
+#
+# This fixture represents a complete ASTM E1394 message from a Snibe Maglumi X3
+# chemiluminescence immunoassay analyzer.
+#
+# Protocol: ASTM E1394 over TCP/IP (ENQ/ACK handshake still applies over TCP)
+# Delimiters: | (field), \ (repeat), ^ (component), & (escape)
+# Test ID format: ^^^<4-digit-code> (Snibe category-based numbering)
+# Specimen barcode: 8-digit Code128
+#
+# Snibe test code reference (from research/04-chemistry-immunoassay-analyzers.md):
+#   0101 = TSH, 0104 = Free T3, 0105 = Free T4,
+#   0501 = Ferritin, 0601 = 25-OH Vitamin D
+#
+# Numbering scheme: 01xx=Thyroid, 05xx=Anemia, 06xx=Bone Metabolism
+#
+# Notes:
+# - Maglumi X3 identifies itself as MAGLUMI X3^Snibe in the Header
+# - TCP connection: middleware is server on port 5000, Maglumi connects as client
+# - Sends results in batches — all results for a sample in one message
+# - Reference ranges use ^ as component separator (like Roche e411)
+# - All values within normal adult ranges
+
+H|\^&|||MAGLUMI X3^Snibe^SN-X3-00187|||||||LIS2-A2|P|1|20260305152000
+P|1||||WILSON^DAVID^M||19720418|M
+O|1|67890123||^^^0101\^^^0104\^^^0105\^^^0501\^^^0601|R|20260305144500|||||N||||SERUM|||||||20260305152000||||F
+R|1|^^^0101|1.87|uIU/mL|0.27^4.20|N||F||||20260305151000|MAGLUMI X3
+R|2|^^^0104|3.2|pg/mL|2.0^4.4|N||F||||20260305151200|MAGLUMI X3
+R|3|^^^0105|1.28|ng/dL|0.93^1.70|N||F||||20260305151400|MAGLUMI X3
+R|4|^^^0501|156.0|ng/mL|30^400|N||F||||20260305151600|MAGLUMI X3
+R|5|^^^0601|42.5|ng/mL|30^100|N||F||||20260305151800|MAGLUMI X3
+L|1|N

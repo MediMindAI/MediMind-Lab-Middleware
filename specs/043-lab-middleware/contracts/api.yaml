@@ -1,0 +1,313 @@
+openapi: 3.0.3
+info:
+  title: MediMind Lab Middleware REST API
+  description: |
+    REST API exposed by the middleware service for MediMind EMR to query
+    analyzer connection status, message audit logs, and service health.
+
+    This API does NOT receive results from analyzers — that happens via
+    serial/TCP protocols. This API is for monitoring and debugging only.
+  version: 0.1.0
+  contact:
+    name: MediMind Lab Team
+
+servers:
+  - url: http://localhost:3001
+    description: Local development
+  - url: http://{lab-pc-ip}:3001
+    description: Hospital lab PC
+
+paths:
+  /health:
+    get:
+      summary: Service health check
+      description: |
+        Returns the overall health of the middleware service.
+        Used by monitoring systems and the EMR to verify the service is running.
+      operationId: getHealth
+      tags: [Health]
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: ok
+                version: 0.1.0
+                uptime: 86400
+                timestamp: "2026-03-05T10:30:00.000Z"
+                analyzers:
+                  total: 10
+                  connected: 8
+                  disconnected: 1
+                  disabled: 1
+                queue:
+                  pending: 0
+                  failed: 0
+                medplum:
+                  connected: true
+                  lastSuccessAt: "2026-03-05T10:29:55.000Z"
+
+  /status:
+    get:
+      summary: Analyzer connection status
+      description: |
+        Returns the connection status of each configured analyzer.
+        The EMR's LIS Monitoring Dashboard calls this endpoint.
+      operationId: getStatus
+      tags: [Status]
+      responses:
+        '200':
+          description: Analyzer status list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+              example:
+                analyzers:
+                  - id: sysmex-xn550
+                    name: "Sysmex XN-550"
+                    protocol: astm
+                    connected: true
+                    lastMessageTime: "2026-03-05T10:29:50.000Z"
+                    lastErrorTime: null
+                    lastError: null
+                    messagesReceived: 142
+                    errorsCount: 0
+                    upSince: "2026-03-04T08:00:00.000Z"
+                  - id: siemens-rapidpoint-500e
+                    name: "Siemens RapidPoint 500e"
+                    protocol: siemens-lis3
+                    connected: false
+                    lastMessageTime: null
+                    lastErrorTime: null
+                    lastError: "Disabled in configuration"
+                    messagesReceived: 0
+                    errorsCount: 0
+                    upSince: null
+
+  /messages:
+    get:
+      summary: Message audit log
+      description: |
+        Returns paginated message log entries for debugging and audit trail.
+        Each entry represents one message received from (or sent to) an analyzer.
+      operationId: getMessages
+      tags: [Messages]
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of entries to return
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 500
+        - name: offset
+          in: query
+          description: Number of entries to skip (for pagination)
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: analyzerId
+          in: query
+          description: Filter by analyzer ID
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by processing status
+          schema:
+            type: string
+            enum: [success, parse-error, send-error, queued]
+        - name: from
+          in: query
+          description: Filter messages from this ISO timestamp
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: Filter messages up to this ISO timestamp
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Paginated message log
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessagesResponse'
+
+  /messages/{id}:
+    get:
+      summary: Single message detail
+      description: Returns full detail of one message, including raw content.
+      operationId: getMessage
+      tags: [Messages]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Message detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageLogEntry'
+        '404':
+          description: Message not found
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status, version, uptime, timestamp, analyzers, queue, medplum]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, error]
+          description: |
+            - ok: all analyzers connected, Medplum reachable, queue empty
+            - degraded: some analyzers disconnected OR queue has pending items
+            - error: Medplum unreachable OR critical failure
+        version:
+          type: string
+          description: Middleware version
+        uptime:
+          type: number
+          description: Seconds since service started
+        timestamp:
+          type: string
+          format: date-time
+          description: Current server time
+        analyzers:
+          type: object
+          properties:
+            total:
+              type: integer
+            connected:
+              type: integer
+            disconnected:
+              type: integer
+            disabled:
+              type: integer
+        queue:
+          type: object
+          properties:
+            pending:
+              type: integer
+              description: Items waiting to be sent
+            failed:
+              type: integer
+              description: Items that exceeded max retries
+        medplum:
+          type: object
+          properties:
+            connected:
+              type: boolean
+            lastSuccessAt:
+              type: string
+              format: date-time
+              nullable: true
+
+    StatusResponse:
+      type: object
+      required: [analyzers]
+      properties:
+        analyzers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyzerStatus'
+
+    AnalyzerStatus:
+      type: object
+      required: [id, name, protocol, connected, messagesReceived, errorsCount]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        protocol:
+          type: string
+          enum: [astm, hl7v2, siemens-lis3, combilyzer]
+        connected:
+          type: boolean
+        lastMessageTime:
+          type: string
+          format: date-time
+          nullable: true
+        lastErrorTime:
+          type: string
+          format: date-time
+          nullable: true
+        lastError:
+          type: string
+          nullable: true
+        messagesReceived:
+          type: integer
+        errorsCount:
+          type: integer
+        upSince:
+          type: string
+          format: date-time
+          nullable: true
+
+    MessagesResponse:
+      type: object
+      required: [messages, total, limit, offset]
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/MessageLogEntry'
+        total:
+          type: integer
+          description: Total number of matching entries
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    MessageLogEntry:
+      type: object
+      required: [id, timestamp, analyzerId, analyzerName, direction, protocol, rawContent, status]
+      properties:
+        id:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        analyzerId:
+          type: string
+        analyzerName:
+          type: string
+        direction:
+          type: string
+          enum: [inbound, outbound]
+        protocol:
+          type: string
+        rawContent:
+          type: string
+          description: Full raw message content
+        parsedSummary:
+          type: string
+          description: Human-readable summary of parsed results
+        fhirResourceIds:
+          type: array
+          items:
+            type: string
+          description: IDs of created FHIR resources
+        status:
+          type: string
+          enum: [success, parse-error, send-error, queued]
+        errorMessage:
+          type: string
+          nullable: true

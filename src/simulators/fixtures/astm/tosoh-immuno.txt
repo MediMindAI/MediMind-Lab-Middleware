@@ -1,0 +1,28 @@
+# Tosoh AIA-360 — Immunoassay (Thyroid + Ferritin)
+#
+# This fixture represents a complete ASTM E1394 message from a Tosoh AIA-360
+# fluorometric enzyme immunoassay analyzer.
+#
+# Protocol: ASTM E1381 / E1394 (standard ASTM)
+# Delimiters: | (field), \ (repeat), ^ (component), & (escape)
+# Test ID format: ^^^<AssayAbbreviation> (Tosoh assay abbreviations)
+# Specimen barcode: 8-digit Code128
+#
+# Tosoh test code reference (from research/04-chemistry-immunoassay-analyzers.md):
+#   TSH = TSH (3rd gen), FT4 = Free T4, FT3 = Free T3, FERR = Ferritin
+#
+# Notes:
+# - The AIA-360 identifies itself as AIA-360^Tosoh in the Header
+# - Uses standard ASTM result reporting
+# - Reference ranges use dash format (e.g., 0.35-4.94)
+# - Tosoh TSH reference range (0.35-4.94) differs slightly from Roche (0.27-4.20)
+# - All values within normal adult ranges
+
+H|\^&|||AIA-360^Tosoh^SN360-0042|||||||LIS2-A2|P|1|20260305140500
+P|1||||BROWN^SARAH^E||19880614|F
+O|1|56789012||^^^TSH\^^^FT4\^^^FT3\^^^FERR|R|20260305133000|||||N||||SERUM|||||||20260305140500||||F
+R|1|^^^TSH|2.45|uIU/mL|0.35-4.94|N||F||TECH02||20260305140000|AIA-360
+R|2|^^^FT4|1.12|ng/dL|0.70-1.48|N||F||TECH02||20260305140100|AIA-360
+R|3|^^^FT3|2.85|pg/mL|1.71-3.71|N||F||TECH02||20260305140200|AIA-360
+R|4|^^^FERR|68.0|ng/mL|15-150|N||F||TECH02||20260305140300|AIA-360
+L|1|N

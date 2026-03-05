@@ -1,0 +1,56 @@
+# Malformed HL7v2 Messages — Error Handling Test Cases
+#
+# This fixture contains intentionally broken HL7v2 messages for testing the parser's
+# error handling. Each case is separated by a blank line and labeled with a # Case comment.
+# The parser should gracefully handle all of these without crashing.
+#
+# In tests, split this file on blank lines to get individual test cases.
+
+# Case 1: Missing MSH segment — message starts with PID instead of the required header.
+# The parser should reject this because MSH defines the encoding characters and message type.
+PID|1||PAT001^^^HOSP||DOE^JOHN||19850315|M
+OBR|1|12345678|12345678|CBC^Complete Blood Count^L|||20260305103000
+OBX|1|NM|WBC^WBC^L|1|7.5|10^9/L|4.0-10.0|N|||F
+
+# Case 2: ORU message with OBR but no OBX segments — a test panel with zero results.
+# The parser should accept the message but produce an empty result set for this order.
+MSH|^~\&|BC-3510|LAB|LIS|HOSPITAL|20260305110000||ORU^R01|MSG-NOOBX|P|2.3.1
+PID|1||PAT002^^^HOSP||SMITH^JANE||19900101|F
+OBR|1|23456789|23456789|CBC^Complete Blood Count^L|||20260305110000||||||||||||||20260305110000||HM|F
+
+# Case 3: Invalid field separators — uses semicolons instead of pipes.
+# The parser should detect that MSH-1 is not '|' and reject or flag this message.
+MSH;^~\&;BC-3510;LAB;LIS;HOSPITAL;20260305120000;;ORU^R01;MSG-BADSEP;P;2.3.1
+PID;1;;PAT003^^^HOSP;;TEST^PATIENT;;19800101;M
+OBR;1;34567890;34567890;CBC^Complete Blood Count^L;;;20260305120000
+OBX;1;NM;WBC^WBC^L;1;6.0;10^9/L;4.0-10.0;N;;;F
+
+# Case 4: Truncated message — cut off mid-segment, as if the serial connection dropped.
+# The parser should detect the incomplete message and report a parse error.
+MSH|^~\&|BC-3510|LAB|LIS|HOSPITAL|20260305130000||ORU^R01|MSG-TRUNC|P|2.3.1
+PID|1||PAT004^^^HOSP||TRUNCATED^PAT
+OBR|1|45678901|45678901|CBC^Complete Blood Count^L|||20260305
+OBX|1|NM|WBC^WBC^L|1|8.2|10^9/L|4.0-10.
+
+# Case 5: OBX with non-numeric value in a NM (numeric) field.
+# OBX-2 says "NM" (numeric) but OBX-5 contains text. The parser should flag this
+# OBX as invalid but still process other valid OBX segments in the message.
+MSH|^~\&|BC-3510|LAB|LIS|HOSPITAL|20260305140000||ORU^R01|MSG-BADVAL|P|2.3.1
+PID|1||PAT005^^^HOSP||BADVALUE^TEST||19750601|M
+OBR|1|56789012|56789012|CBC^Complete Blood Count^L|||20260305140000||||||||||||||20260305140000||HM|F
+OBX|1|NM|WBC^WBC^L|1|INVALID_NUMBER|10^9/L|4.0-10.0|N|||F|||20260305140000
+OBX|2|NM|RBC^RBC^L|1|4.80|10^12/L|3.80-5.80|N|||F|||20260305140000
+OBX|3|NM|HGB^Hemoglobin^L|1|14.5|g/dL|12.0-17.0|N|||F|||20260305140000
+
+# Case 6: Empty message — just an MSH with no content segments at all.
+# The parser should accept it but produce no results.
+MSH|^~\&|BC-3510|LAB|LIS|HOSPITAL|20260305150000||ORU^R01|MSG-EMPTY|P|2.3.1
+
+# Case 7: Duplicate OBX set IDs — two OBX segments with the same sequence number.
+# The parser should handle this gracefully (keep both, or use the last one).
+MSH|^~\&|BC-3510|LAB|LIS|HOSPITAL|20260305160000||ORU^R01|MSG-DUPOBX|P|2.3.1
+PID|1||PAT006^^^HOSP||DUPTEST^PATIENT||19880101|F
+OBR|1|67890123|67890123|CBC^Complete Blood Count^L|||20260305160000||||||||||||||20260305160000||HM|F
+OBX|1|NM|WBC^WBC^L|1|6.5|10^9/L|4.0-10.0|N|||F|||20260305160000
+OBX|1|NM|WBC^WBC^L|1|7.2|10^9/L|4.0-10.0|N|||F|||20260305160000
+OBX|2|NM|RBC^RBC^L|1|4.90|10^12/L|3.80-5.80|N|||F|||20260305160000
