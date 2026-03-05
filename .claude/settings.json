@@ -1,0 +1,4 @@
+{
+  "project": "medimind-lab-middleware",
+  "description": "MediMind Lab Middleware — Connects physical lab analyzers to MediMind EMR via ASTM/HL7v2 protocols"
+}

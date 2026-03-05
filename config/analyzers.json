@@ -1,0 +1,144 @@
+{
+  "analyzers": [
+    {
+      "id": "sysmex-xn550",
+      "name": "Sysmex XN-550",
+      "protocol": "astm",
+      "connection": "serial",
+      "port": "COM3",
+      "baudRate": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "enabled": true
+    },
+    {
+      "id": "roche-cobas-c111",
+      "name": "Roche Cobas c 111",
+      "protocol": "astm",
+      "connection": "serial",
+      "port": "COM4",
+      "baudRate": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "enabled": true
+    },
+    {
+      "id": "roche-cobas-e411",
+      "name": "Roche Cobas e 411",
+      "protocol": "astm",
+      "connection": "serial",
+      "port": "COM5",
+      "baudRate": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "enabled": true
+    },
+    {
+      "id": "roche-hitachi",
+      "name": "Roche Hitachi 917",
+      "protocol": "astm",
+      "connection": "serial",
+      "port": "COM6",
+      "baudRate": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "enabled": true
+    },
+    {
+      "id": "bio-rad-d10",
+      "name": "Bio-Rad D-10",
+      "protocol": "astm",
+      "connection": "serial",
+      "port": "COM7",
+      "baudRate": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "enabled": true
+    },
+    {
+      "id": "tosoh-aia360",
+      "name": "Tosoh AIA-360",
+      "protocol": "astm",
+      "connection": "serial",
+      "port": "COM8",
+      "baudRate": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "enabled": true
+    },
+    {
+      "id": "snibe-maglumi-x3",
+      "name": "Snibe Maglumi X3",
+      "protocol": "astm",
+      "connection": "tcp",
+      "host": "192.168.1.60",
+      "tcpPort": 5000,
+      "enabled": true
+    },
+    {
+      "id": "mindray-bc3510",
+      "name": "Mindray BC-3510",
+      "protocol": "hl7v2",
+      "connection": "serial",
+      "port": "COM9",
+      "baudRate": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "enabled": true
+    },
+    {
+      "id": "siemens-rapidpoint-500e",
+      "name": "Siemens RapidPoint 500e",
+      "protocol": "siemens-lis3",
+      "connection": "serial",
+      "port": "COM10",
+      "baudRate": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "enabled": false,
+      "_comment": "Disabled until Siemens LIS3 interface spec is obtained"
+    },
+    {
+      "id": "combilyzer-13",
+      "name": "Combilyzer 13",
+      "protocol": "combilyzer",
+      "connection": "serial",
+      "port": "COM11",
+      "baudRate": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "enabled": true,
+      "_comment": "Unidirectional — receive results only"
+    }
+  ],
+  "medplum": {
+    "baseUrl": "https://api.medplum.com",
+    "projectId": "71c7841a-7f47-4029-8ab4-0bf62751c173",
+    "clientId": "c7d601b8-758f-4c90-b4dd-2fe8e1d66973",
+    "clientSecret": ""
+  },
+  "api": {
+    "port": 3001,
+    "host": "0.0.0.0"
+  },
+  "queue": {
+    "dbPath": "./data/queue.db",
+    "retryIntervalMs": 30000,
+    "maxRetries": 10
+  },
+  "logging": {
+    "level": "info",
+    "dir": "./logs",
+    "maxFiles": 30,
+    "maxSizeMb": 50
+  }
+}

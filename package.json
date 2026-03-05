@@ -1,0 +1,43 @@
+{
+  "name": "medimind-lab-middleware",
+  "version": "0.1.0",
+  "description": "Laboratory analyzer middleware — receives results via ASTM/HL7v2 and forwards to Medplum Cloud as FHIR resources",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "simulate:astm": "tsx src/simulators/astmSimulator.ts",
+    "simulate:hl7": "tsx src/simulators/hl7Simulator.ts",
+    "install-service": "tsx scripts/install-windows-service.ts",
+    "uninstall-service": "tsx scripts/uninstall-windows-service.ts",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@medplum/core": "^4.0.0",
+    "@medplum/fhirtypes": "^4.0.0",
+    "serialport": "^12.0.0",
+    "express": "^4.21.0",
+    "better-sqlite3": "^11.0.0",
+    "winston": "^3.17.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0",
+    "vitest": "^3.0.0",
+    "eslint": "^9.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
