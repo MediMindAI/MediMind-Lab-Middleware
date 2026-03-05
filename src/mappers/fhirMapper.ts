@@ -190,8 +190,8 @@ function buildInterpretation(flag: ResultFlag): Observation['interpretation'] {
 function parseReferenceRange(
   raw: string,
   unit: string
-): Observation['referenceRange'] extends (infer T)[] ? T : never {
-  if (!raw) return undefined as never;
+): NonNullable<Observation['referenceRange']>[number] | undefined {
+  if (!raw) return undefined;
 
   const trimmed = raw.trim();
 

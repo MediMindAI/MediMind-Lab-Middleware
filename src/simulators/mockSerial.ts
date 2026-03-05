@@ -48,20 +48,20 @@ export class MockSerialPort extends EventEmitter {
    * Opens the port. Sets isOpen = true and emits 'open'.
    * Optionally calls a callback when done.
    */
-  open(callback?: () => void): void {
+  open(callback?: (err: Error | null) => void): void {
     this.isOpen = true;
     this.emit('open');
-    callback?.();
+    callback?.(null);
   }
 
   /**
    * Closes the port. Sets isOpen = false and emits 'close'.
    * Optionally calls a callback when done.
    */
-  close(callback?: () => void): void {
+  close(callback?: (err: Error | null) => void): void {
     this.isOpen = false;
     this.emit('close');
-    callback?.();
+    callback?.(null);
   }
 
   /**

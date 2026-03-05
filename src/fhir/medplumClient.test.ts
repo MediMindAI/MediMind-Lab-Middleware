@@ -205,8 +205,8 @@ describe('executeFHIRBundle()', () => {
     };
     mockExecuteBatch.mockResolvedValueOnce(mockResponse);
 
-    const obs1 = { resourceType: 'Observation' as const, status: 'preliminary' as const };
-    const obs2 = { resourceType: 'Observation' as const, status: 'preliminary' as const };
+    const obs1 = { resourceType: 'Observation' as const, status: 'preliminary' as const, code: { text: 'test' } };
+    const obs2 = { resourceType: 'Observation' as const, status: 'preliminary' as const, code: { text: 'test' } };
 
     const result = await executeFHIRBundle(mockClient, [obs1, obs2]);
 
@@ -218,7 +218,7 @@ describe('executeFHIRBundle()', () => {
   it('propagates Medplum errors', async () => {
     mockExecuteBatch.mockRejectedValueOnce(new Error('Server unavailable'));
 
-    const obs = { resourceType: 'Observation' as const, status: 'preliminary' as const };
+    const obs = { resourceType: 'Observation' as const, status: 'preliminary' as const, code: { text: 'test' } };
 
     await expect(executeFHIRBundle(mockClient, [obs])).rejects.toThrow('Server unavailable');
   });

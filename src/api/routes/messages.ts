@@ -47,7 +47,7 @@ export function createMessagesRouter(deps: MessagesDeps): Router {
 
   // GET /messages/:id — single message detail
   router.get('/:id', (req: Request, res: Response) => {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(String(req.params.id), 10);
 
     if (isNaN(id)) {
       res.status(400).json({ error: 'Invalid message ID' });
@@ -71,7 +71,7 @@ export function createMessagesRouter(deps: MessagesDeps): Router {
       return;
     }
 
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(String(req.params.id), 10);
 
     if (isNaN(id)) {
       res.status(400).json({ error: 'Invalid message ID' });

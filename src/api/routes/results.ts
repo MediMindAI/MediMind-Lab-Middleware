@@ -22,9 +22,9 @@ export function createResultsRouter(deps: ResultsDeps): Router {
 
   // GET /results/:barcode — look up results by specimen barcode
   router.get('/:barcode', (req: Request, res: Response) => {
-    const { barcode } = req.params;
+    const barcode = String(req.params.barcode);
 
-    if (!barcode || barcode.length < 1) {
+    if (!barcode) {
       res.status(400).json({ error: 'Barcode is required' });
       return;
     }
