@@ -19,6 +19,28 @@ import type { AnalyzerMapping } from './analyzerMappings/types.js';
 import { getMappingForAnalyzer } from './analyzerMappings/index.js';
 
 // ---------------------------------------------------------------------------
+// Timestamp conversion — lab timestamps (YYYYMMDDHHMMSS) → ISO 8601
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert a lab-style timestamp (YYYYMMDDHHMMSS) into ISO 8601 format.
+ * If already ISO or empty, returns it unchanged.
+ * Examples: "20260306135500" → "2026-03-06T13:55:00"
+ */
+function toISODateTime(raw: string): string {
+  if (!raw || raw.includes('T') || raw.includes('-')) return raw;
+  // Must be at least YYYYMMDD (8 chars)
+  if (raw.length < 8 || !/^\d+$/.test(raw)) return raw;
+  const y = raw.slice(0, 4);
+  const m = raw.slice(4, 6);
+  const d = raw.slice(6, 8);
+  const hh = raw.slice(8, 10) || '00';
+  const mm = raw.slice(10, 12) || '00';
+  const ss = raw.slice(12, 14) || '00';
+  return `${y}-${m}-${d}T${hh}:${mm}:${ss}`;
+}
+
+// ---------------------------------------------------------------------------
 // Flag mapping — translate analyzer flags to our standard ResultFlag type
 // ---------------------------------------------------------------------------
 
@@ -110,7 +132,7 @@ export function mapASTMToLabResults(message: ASTMMessage, analyzerId: string): L
         specimenBarcode: orderEntry.order.specimenId,
         patientId: patientEntry.patient.patientId,
         patientName: patientEntry.patient.patientName,
-        testDateTime: orderEntry.results[0].dateTimeOfTest || message.receivedAt,
+        testDateTime: toISODateTime(orderEntry.results[0].dateTimeOfTest) || message.receivedAt,
         receivedAt: message.receivedAt,
         components,
         rawMessage: message.rawFrames.join('\n'),
@@ -156,7 +178,7 @@ export function mapHL7v2ToLabResults(message: ORUMessage, analyzerId: string): L
     specimenBarcode: message.obr.specimenId,
     patientId: message.pid?.patientId ?? '',
     patientName: message.pid?.patientName ?? '',
-    testDateTime: message.obr.observationDateTime || message.receivedAt,
+    testDateTime: toISODateTime(message.obr.observationDateTime) || message.receivedAt,
     receivedAt: message.receivedAt,
     components,
     rawMessage: message.rawMessage,
@@ -197,7 +219,7 @@ export function mapCombilyzerToLabResults(result: CombilyzerResult, analyzerId: 
     specimenBarcode: result.specimenId,
     patientId: '',
     patientName: '',
-    testDateTime: result.dateTime || result.receivedAt,
+    testDateTime: toISODateTime(result.dateTime) || result.receivedAt,
     receivedAt: result.receivedAt,
     components,
     rawMessage: result.rawOutput,

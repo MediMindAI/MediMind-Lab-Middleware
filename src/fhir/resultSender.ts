@@ -104,7 +104,19 @@ export async function sendLabResult(
     return { success: false, error: `Medplum transaction failed: ${message}` };
   }
 
-  // Step 4: Extract created resource IDs from response
+  // Step 4: Check for errors in response entries
+  const errors = (response.entry ?? [])
+    .filter((e) => e.response?.status && !e.response.status.startsWith('2'))
+    .map((e) => {
+      const oo = e.response?.outcome as { issue?: { details?: { text?: string } }[] } | undefined;
+      return oo?.issue?.[0]?.details?.text ?? `HTTP ${e.response?.status}`;
+    });
+
+  if (errors.length > 0) {
+    return { success: false, error: `FHIR entries failed: ${errors[0]}` };
+  }
+
+  // Step 5: Extract created resource IDs from response
   const resourceIds = extractResourceIds(response);
 
   return { success: true, resourceIds };

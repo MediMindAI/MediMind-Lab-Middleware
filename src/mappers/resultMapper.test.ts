@@ -489,6 +489,15 @@ describe('mapHL7v2ToLabResults()', () => {
     expect(results[0].specimenBarcode).toBe('');
   });
 
+  it('converts HL7v2 timestamp (YYYYMMDDHHMMSS) to ISO 8601 in testDateTime', () => {
+    const msg = buildORUMessage({
+      obr: { observationDateTime: '20240315120000' },
+    });
+
+    const results = mapHL7v2ToLabResults(msg, 'mindray-bc3510');
+    expect(results[0].testDateTime).toBe('2024-03-15T12:00:00');
+  });
+
   it('falls back to receivedAt when observationDateTime is empty', () => {
     const msg = buildORUMessage({
       obr: { observationDateTime: '' },

@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "simulate:astm": "tsx src/simulators/astmSimulator.ts",
     "simulate:hl7": "tsx src/simulators/hl7Simulator.ts",
+    "simulate:bc7600": "tsx src/simulators/sendBC7600.ts",
     "install-service": "tsx scripts/install-windows-service.ts install",
     "uninstall-service": "tsx scripts/install-windows-service.ts uninstall",
     "lint": "eslint src/",
@@ -23,6 +24,7 @@
     "better-sqlite3": "^11.0.0",
     "dotenv": "^16.4.0",
     "express": "^4.21.0",
+    "playwright": "^1.58.2",
     "serialport": "^12.0.0",
     "winston": "^3.17.0",
     "winston-daily-rotate-file": "^5.0.0"
