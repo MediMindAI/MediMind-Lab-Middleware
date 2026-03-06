@@ -90,6 +90,25 @@ describe('RetryProcessor', () => {
     expect(sentArg.analyzerId).toBe('sysmex-xn550');
   });
 
+  it('marks item failed with "Unknown error" when sender returns success:false without error', async () => {
+    sender.mockResolvedValue({ success: false });
+
+    queue.enqueue(makeLabResult());
+    await processor.processOnce();
+
+    // Item should still be pending (1 attempt out of max)
+    expect(queue.getPendingCount()).toBe(1);
+  });
+
+  it('marks item failed with "Unknown error" when sender throws non-Error', async () => {
+    sender.mockRejectedValue('string-error');
+
+    queue.enqueue(makeLabResult());
+    await processor.processOnce();
+
+    expect(queue.getPendingCount()).toBe(1);
+  });
+
   it('start() begins periodic processing', async () => {
     vi.useFakeTimers();
 
@@ -129,5 +148,59 @@ describe('RetryProcessor', () => {
 
     processor.stop();
     vi.useRealTimers();
+  });
+
+  // ── Task 3.4: Batch processing ──────────────────────────────────
+
+  describe('processBatch', () => {
+    it('processes multiple items in one call', async () => {
+      queue.enqueue(makeLabResult('batch-a'));
+      queue.enqueue(makeLabResult('batch-b'));
+      queue.enqueue(makeLabResult('batch-c'));
+
+      const count = await processor.processBatch(10);
+
+      expect(count).toBe(3);
+      expect(sender).toHaveBeenCalledTimes(3);
+      expect(queue.getPendingCount()).toBe(0);
+    });
+
+    it('returns 0 when queue is empty', async () => {
+      const count = await processor.processBatch(10);
+      expect(count).toBe(0);
+      expect(sender).not.toHaveBeenCalled();
+    });
+
+    it('handles per-item failures independently', async () => {
+      queue.enqueue(makeLabResult('ok-item'));
+      queue.enqueue(makeLabResult('fail-item'));
+
+      // First call succeeds, second fails
+      sender
+        .mockResolvedValueOnce({ success: true })
+        .mockResolvedValueOnce({ success: false, error: 'Server error' });
+
+      const count = await processor.processBatch(10);
+
+      expect(count).toBe(2);
+      // First item sent, second item still pending (rescheduled by markFailed)
+      expect(queue.getPendingCount()).toBe(1);
+    });
+
+    it('start() uses processBatch for periodic processing', async () => {
+      vi.useFakeTimers();
+
+      queue.enqueue(makeLabResult('periodic-a'));
+      queue.enqueue(makeLabResult('periodic-b'));
+      processor.start(1000);
+
+      await vi.advanceTimersByTimeAsync(1000);
+
+      // Both items should be processed in one tick
+      expect(sender).toHaveBeenCalledTimes(2);
+
+      processor.stop();
+      vi.useRealTimers();
+    });
   });
 });

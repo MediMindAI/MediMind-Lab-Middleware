@@ -16,11 +16,16 @@ import type { LabResult } from '../types/result.js';
 import type { BarcodeMatch } from './types.js';
 import { findByBarcode, executeFHIRBundle } from './medplumClient.js';
 
+/** Identifier system for idempotency checks on DiagnosticReports */
+const LIS_MESSAGE_ID_SYSTEM = 'http://medimind.ge/fhir/identifier/lis-message-id';
+
 /** What sendLabResult returns — success or error, never throws */
 export interface SendResult {
   success: boolean;
   error?: string;
   resourceIds?: string[];
+  /** True if this result was already sent (duplicate detected) */
+  skipped?: boolean;
 }
 
 /** Signature for the FHIR mapper function (injected, not imported directly) */
@@ -45,6 +50,20 @@ export async function sendLabResult(
   // Validate barcode
   if (!labResult.specimenBarcode) {
     return { success: false, error: 'LabResult has no specimen barcode' };
+  }
+
+  // Idempotency check — skip if a DiagnosticReport with this messageId already exists
+  if (labResult.messageId) {
+    try {
+      const existing = await client.searchOne('DiagnosticReport', {
+        identifier: `${LIS_MESSAGE_ID_SYSTEM}|${labResult.messageId}`,
+      });
+      if (existing) {
+        return { success: true, skipped: true };
+      }
+    } catch {
+      // If idempotency check fails, continue with normal flow
+    }
   }
 
   // Step 1: Find Specimen + ServiceRequest by barcode

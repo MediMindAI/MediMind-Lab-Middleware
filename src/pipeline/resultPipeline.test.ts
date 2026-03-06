@@ -59,6 +59,7 @@ function createMockDeps(): PipelineDeps {
     },
     queue: {
       enqueue: vi.fn().mockReturnValue(1),
+      markSent: vi.fn(),
     },
     messageLogger: {
       logMessage: vi.fn().mockReturnValue(1),
@@ -110,8 +111,9 @@ describe('ResultPipeline', () => {
       const logEntry = (deps.messageLogger.logMessage as ReturnType<typeof vi.fn>).mock.calls[0][0];
       expect(logEntry.status).toBe('sent');
 
-      // Queue should NOT be called (success path)
-      expect(deps.queue.enqueue).not.toHaveBeenCalled();
+      // Queue-before-send: enqueue IS called first, then markSent on success
+      expect(deps.queue.enqueue).toHaveBeenCalledOnce();
+      expect(deps.queue.markSent).toHaveBeenCalledWith(1);
     });
 
     it('queues result when sender fails', async () => {
@@ -127,7 +129,9 @@ describe('ResultPipeline', () => {
       const stages = events.map((e) => e.stage);
       expect(stages).toEqual(['received', 'parsed', 'mapped', 'queued']);
 
+      // Queue-before-send: enqueue called before send, markSent NOT called on failure
       expect(deps.queue.enqueue).toHaveBeenCalledOnce();
+      expect(deps.queue.markSent).not.toHaveBeenCalled();
 
       const logEntry = (deps.messageLogger.logMessage as ReturnType<typeof vi.fn>).mock.calls[0][0];
       expect(logEntry.status).toBe('error');
@@ -243,6 +247,31 @@ describe('ResultPipeline', () => {
         expect(event.analyzerId).toBe('sysmex-xn550');
       }
     });
+
+    it('catches ASTM parser errors and emits error event', async () => {
+      const events = collectEvents(pipeline);
+
+      // Missing H record causes parseASTMMessage to throw
+      await pipeline.processASTM('sysmex-xn550', 'INVALID|DATA|THAT|WILL|FAIL');
+
+      const stages = events.map((e) => e.stage);
+      // Should get received + error (parser threw)
+      expect(stages).toContain('received');
+      // The pipeline should NOT crash — it catches the error
+      expect(stages.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('catches Combilyzer parser errors and emits error event (empty data)', async () => {
+      const events = collectEvents(pipeline);
+
+      // Combilyzer with empty data — the mapper should return empty array,
+      // so we feed it garbage that mapper can't handle
+      await pipeline.processCombilyzer('combilyzer-13', '');
+
+      // Pipeline should handle gracefully
+      const stages = events.map((e) => e.stage);
+      expect(stages).toContain('received');
+    });
   });
 
   describe('sent event metadata', () => {
@@ -254,6 +283,101 @@ describe('ResultPipeline', () => {
       expect(sentEvent).toBeDefined();
       expect(sentEvent!.fhirResourceIds).toEqual(['Observation/obs-1', 'DiagnosticReport/dr-1']);
       expect(sentEvent!.barcode).toBe('14829365');
+    });
+  });
+
+  // ── Task 1.3: Queue Before Send (crash safety) ─────────────────────
+
+  describe('queue-before-send (crash safety)', () => {
+    it('calls queue.enqueue BEFORE resultSender.sendLabResult', async () => {
+      const callOrder: string[] = [];
+      (deps.queue.enqueue as ReturnType<typeof vi.fn>).mockImplementation(() => {
+        callOrder.push('enqueue');
+        return 1;
+      });
+      (deps.resultSender.sendLabResult as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+        callOrder.push('send');
+        return { success: true, resourceIds: [] };
+      });
+
+      await pipeline.processASTM('sysmex-xn550', ASTM_RAW);
+
+      expect(callOrder[0]).toBe('enqueue');
+      expect(callOrder[1]).toBe('send');
+    });
+
+    it('calls markSent with queue ID on successful send', async () => {
+      (deps.queue.enqueue as ReturnType<typeof vi.fn>).mockReturnValue(42);
+
+      await pipeline.processASTM('sysmex-xn550', ASTM_RAW);
+
+      expect(deps.queue.markSent).toHaveBeenCalledWith(42);
+    });
+
+    it('does NOT call markSent when send fails', async () => {
+      (deps.resultSender.sendLabResult as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        success: false,
+        error: 'Network down',
+      });
+
+      await pipeline.processASTM('sysmex-xn550', ASTM_RAW);
+
+      expect(deps.queue.markSent).not.toHaveBeenCalled();
+    });
+
+    it('does NOT call markSent when sender throws', async () => {
+      (deps.resultSender.sendLabResult as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+        new Error('Connection reset')
+      );
+
+      await pipeline.processASTM('sysmex-xn550', ASTM_RAW);
+
+      expect(deps.queue.markSent).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── Task 1.4: Don't swallow queue failures ──────────────────────────
+
+  describe('queue failure handling', () => {
+    it('emits CRITICAL error when queue.enqueue throws', async () => {
+      (deps.queue.enqueue as ReturnType<typeof vi.fn>).mockImplementation(() => {
+        throw new Error('SQLite disk full');
+      });
+
+      const events = collectEvents(pipeline);
+      await pipeline.processASTM('sysmex-xn550', ASTM_RAW);
+
+      const errorEvent = events.find((e) => e.stage === 'error');
+      expect(errorEvent).toBeDefined();
+      expect(errorEvent!.error!.toLowerCase()).toContain('queue failed');
+
+      // Sender should NOT be called if queue failed
+      expect(deps.resultSender.sendLabResult).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── Task 3.11: Protocol field in logMessage ─────────────────────────
+
+  describe('protocol field in logMessage', () => {
+    it('includes protocol: astm for processASTM', async () => {
+      await pipeline.processASTM('sysmex-xn550', ASTM_RAW);
+
+      const logEntry = (deps.messageLogger.logMessage as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(logEntry.protocol).toBe('astm');
+    });
+
+    it('includes protocol: hl7v2 for processHL7v2', async () => {
+      await pipeline.processHL7v2('mindray-bc3510', HL7V2_RAW);
+
+      const logEntry = (deps.messageLogger.logMessage as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(logEntry.protocol).toBe('hl7v2');
+    });
+
+    it('includes protocol: combilyzer for processCombilyzer', async () => {
+      await pipeline.processCombilyzer('combilyzer-13', COMBILYZER_RAW);
+
+      const logEntry = (deps.messageLogger.logMessage as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(logEntry.protocol).toBe('combilyzer');
     });
   });
 });

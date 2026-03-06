@@ -116,6 +116,26 @@ describe('SerialConnection', () => {
     await expect(conn.write(Buffer.from('test'))).rejects.toThrow('not open');
   });
 
+  it('throws when default factory is not set and no factory provided', async () => {
+    const conn = new SerialConnection(TEST_CONFIG);
+    await expect(conn.open()).rejects.toThrow('Real SerialPort factory not set');
+  });
+
+  it('setDefaultFactory allows construction without explicit factory', async () => {
+    SerialConnection.setDefaultFactory(
+      () => new MockSerialPort({ path: 'COM3', baudRate: 9600 }),
+    );
+
+    const conn = new SerialConnection(TEST_CONFIG);
+    await conn.open();
+    expect(conn.isOpen()).toBe(true);
+
+    // Reset to throwing factory so other tests aren't affected
+    SerialConnection.setDefaultFactory(() => {
+      throw new Error('Real SerialPort factory not set.');
+    });
+  });
+
   it('passes config to the factory', async () => {
     const factorySpy = vi.fn(() => new MockSerialPort({ path: 'COM5', baudRate: 115200 }));
     const customConfig: SerialConfig = {

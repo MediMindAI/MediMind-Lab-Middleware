@@ -308,6 +308,30 @@ describe('mapASTMToLabResults()', () => {
     expect(comp.unit).toBe('10*3/uL'); // UCUM unit from mapping, not raw
   });
 
+  it('populates loincCode from analyzer mapping when test code is known', () => {
+    const msg = buildASTMMessage({
+      results: [
+        { testCode: 'WBC', value: '7.5', unit: 'x10^3/uL', abnormalFlag: 'N' },
+      ],
+    });
+
+    const results = mapASTMToLabResults(msg, 'sysmex-xn550');
+
+    expect(results[0].components[0].loincCode).toBe('6690-2');
+  });
+
+  it('leaves loincCode undefined when test code has no mapping', () => {
+    const msg = buildASTMMessage({
+      results: [
+        { testCode: 'UNKNOWN_XYZ', value: '42', unit: 'mg/dL', abnormalFlag: '' },
+      ],
+    });
+
+    const results = mapASTMToLabResults(msg, 'sysmex-xn550');
+
+    expect(results[0].components[0].loincCode).toBeUndefined();
+  });
+
   it('handles unknown analyzer ID (no mapping file)', () => {
     const msg = buildASTMMessage({
       results: [
@@ -368,6 +392,38 @@ describe('mapASTMToLabResults()', () => {
     expect(results).toHaveLength(2);
     expect(results[0].specimenBarcode).toBe('11111111');
     expect(results[1].specimenBarcode).toBe('22222222');
+  });
+
+  it('skips orders with empty results array', () => {
+    const msg: ASTMMessage = {
+      header: buildASTMHeader(),
+      patients: [
+        {
+          patient: buildASTMPatient(),
+          orders: [
+            {
+              order: buildASTMOrder(),
+              results: [], // empty — should be skipped
+            },
+          ],
+        },
+      ],
+      rawFrames: ['H|...', 'L|1'],
+      receivedAt: '2024-03-15T12:00:00.000Z',
+    };
+
+    const results = mapASTMToLabResults(msg, 'sysmex-xn550');
+    expect(results).toEqual([]);
+  });
+
+  it('falls back to receivedAt when dateTimeOfTest is empty', () => {
+    const msg = buildASTMMessage({
+      results: [{ testCode: 'WBC', value: '7.5', dateTimeOfTest: '' }],
+      receivedAt: '2024-03-15T12:00:00.000Z',
+    });
+
+    const results = mapASTMToLabResults(msg, 'sysmex-xn550');
+    expect(results[0].testDateTime).toBe('2024-03-15T12:00:00.000Z');
   });
 });
 
@@ -431,6 +487,16 @@ describe('mapHL7v2ToLabResults()', () => {
 
     expect(results).toHaveLength(1);
     expect(results[0].specimenBarcode).toBe('');
+  });
+
+  it('falls back to receivedAt when observationDateTime is empty', () => {
+    const msg = buildORUMessage({
+      obr: { observationDateTime: '' },
+      receivedAt: '2024-03-15T12:00:00.000Z',
+    });
+
+    const results = mapHL7v2ToLabResults(msg, 'mindray-bc3510');
+    expect(results[0].testDateTime).toBe('2024-03-15T12:00:00.000Z');
   });
 
   it('preserves unknown test codes from OBX', () => {
@@ -529,6 +595,16 @@ describe('mapCombilyzerToLabResults()', () => {
     expect(comp.testCode).toBe('XYZ');
     expect(comp.testName).toBe('XYZ');
     expect(comp.unit).toBe('mg/dL');
+  });
+
+  it('falls back to receivedAt when dateTime is empty', () => {
+    const result = buildCombilyzerResult({
+      dateTime: '',
+      receivedAt: '2024-03-15T12:00:00.000Z',
+    });
+
+    const results = mapCombilyzerToLabResults(result, 'combilyzer-13');
+    expect(results[0].testDateTime).toBe('2024-03-15T12:00:00.000Z');
   });
 });
 

@@ -129,4 +129,44 @@ describe('MLLPTransport', () => {
     expect(onMessage).toHaveBeenCalledTimes(2);
     expect(onMessage).toHaveBeenNthCalledWith(2, msg2);
   });
+
+  // ─── wrapFrame (static) ─────────────────────────────────────────
+
+  it('wrapFrame wraps a message in MLLP framing', () => {
+    const msg = 'MSH|^~\\&|Test||||||ACK^R01|1|P|2.3.1\rMSA|AA|M01|\r';
+    const wrapped = MLLPTransport.wrapFrame(msg);
+
+    expect(wrapped[0]).toBe(VT);
+    expect(wrapped[wrapped.length - 2]).toBe(FS);
+    expect(wrapped[wrapped.length - 1]).toBe(CR);
+    expect(wrapped.subarray(1, wrapped.length - 2).toString()).toBe(msg);
+  });
+
+  // ─── Buffer overflow protection ─────────────────────────────────
+
+  it('emits error and resets buffer when it exceeds 1MB', () => {
+    const onError = vi.fn();
+    const onMessage = vi.fn();
+    transport.on('error', onError);
+    transport.on('message', onMessage);
+
+    // Start a frame with VT, then send >1MB of data without the FS+CR terminator
+    transport.receive(Buffer.from([VT]));
+
+    const chunk = Buffer.alloc(64 * 1024, 0x41); // 64KB of 'A's
+    for (let i = 0; i < 16; i++) {
+      transport.receive(chunk); // 16 * 64KB = 1MB — still within limit
+    }
+
+    // One more chunk pushes it over
+    transport.receive(chunk);
+
+    expect(onError).toHaveBeenCalledOnce();
+    expect(onError).toHaveBeenCalledWith(expect.stringMatching(/buffer overflow/i));
+    expect(onMessage).not.toHaveBeenCalled();
+
+    // Transport should still work after the overflow reset
+    transport.receive(frame('MSH|^~\\&|BC-3510|Lab|||20240315||ORU^R01|M99|P|2.3.1'));
+    expect(onMessage).toHaveBeenCalledOnce();
+  });
 });

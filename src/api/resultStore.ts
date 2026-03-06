@@ -19,6 +19,9 @@ export class ResultStore {
   /** Barcode → array of LabResults (one barcode can have results from multiple analyzers) */
   private store = new Map<string, LabResult[]>();
 
+  /** Barcode → timestamp (ms) when the entry was first added */
+  private timestamps = new Map<string, number>();
+
   /** Store a parsed LabResult, keyed by its specimen barcode. */
   add(result: LabResult): void {
     const barcode = result.specimenBarcode;
@@ -27,6 +30,11 @@ export class ResultStore {
     const existing = this.store.get(barcode) ?? [];
     existing.push(result);
     this.store.set(barcode, existing);
+
+    // Only record the timestamp on first add for this barcode
+    if (!this.timestamps.has(barcode)) {
+      this.timestamps.set(barcode, Date.now());
+    }
   }
 
   /** Get all results for a barcode, or null if none exist. */
@@ -43,10 +51,33 @@ export class ResultStore {
   /** Remove results for a barcode (e.g., after EMR confirms receipt). */
   remove(barcode: string): void {
     this.store.delete(barcode);
+    this.timestamps.delete(barcode);
+  }
+
+  /** Evict entries older than ttlMs (default 24 hours). Returns count evicted. */
+  evictExpired(ttlMs: number = 24 * 60 * 60 * 1000): number {
+    const now = Date.now();
+    let evicted = 0;
+    for (const [barcode, addedAt] of this.timestamps) {
+      if (now - addedAt > ttlMs) {
+        this.store.delete(barcode);
+        this.timestamps.delete(barcode);
+        evicted++;
+      }
+    }
+    return evicted;
   }
 
   /** Number of barcodes with stored results. */
   get size(): number {
     return this.store.size;
+  }
+
+  /**
+   * Set the timestamp for a barcode (for testing only).
+   * Allows tests to simulate entries added in the past without waiting.
+   */
+  setTimestamp(barcode: string, timestampMs: number): void {
+    this.timestamps.set(barcode, timestampMs);
   }
 }

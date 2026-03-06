@@ -9,8 +9,8 @@
  * These tests define the expected behavior BEFORE implementation exists (TDD).
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ASTMTransport } from './transport.js';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { ASTMTransport, RECEIVE_TIMEOUT_MS } from './transport.js';
 import { ASTM } from '../../types/astm.js';
 
 /** Build a valid ASTM frame buffer: STX + frameNumber + data + ETX/ETB + checksum + CR + LF */
@@ -209,5 +209,119 @@ describe('ASTMTransport', () => {
     expect(frames).toHaveLength(0);
     expect(responses).toHaveLength(0);
     expect(errors).toHaveLength(0);
+  });
+
+  // ─── Test 10: NAK for minimal frame where terminator is invalid ────
+
+  it('sends NAK for a minimal 5-byte frame where terminator position is invalid', () => {
+    const responses: number[] = [];
+    transport.on('response', (byte: number) => responses.push(byte));
+
+    transport.receive(Buffer.from([ASTM.ENQ]));
+    responses.length = 0;
+
+    // 5-byte frame buffer: frameNum(0x31) + "A" + "B" + CR + LF
+    // At len=5, terminator = bytes[0] = 0x31 ('1'), which is not ETX or ETB → NAK
+    transport.receive(Buffer.from([
+      ASTM.STX,
+      0x31,       // frame number '1'
+      0x41,       // 'A'
+      0x42,       // 'B'
+      ASTM.CR,
+      ASTM.LF,
+    ]));
+
+    expect(responses).toContain(ASTM.NAK);
+  });
+
+  // ─── Test 11: NAK for frame with invalid terminator ────────────────
+
+  it('sends NAK for frame with invalid terminator (not ETX or ETB)', () => {
+    const responses: number[] = [];
+    transport.on('response', (byte: number) => responses.push(byte));
+
+    transport.receive(Buffer.from([ASTM.ENQ]));
+    responses.length = 0;
+
+    // Frame where the "terminator" byte is 0x00 instead of ETX(0x03) or ETB(0x17)
+    // Layout: STX + frameNum(1) + data(1) + badTerminator(0x00) + cs(2) + CR + LF
+    transport.receive(Buffer.from([
+      ASTM.STX,
+      0x31,       // frame number '1'
+      0x41,       // data byte 'A'
+      0x00,       // invalid terminator
+      0x30, 0x30, // fake checksum
+      ASTM.CR,
+      ASTM.LF,
+    ]));
+
+    expect(responses).toContain(ASTM.NAK);
+  });
+
+  // ─── Test 12: Frame buffer overflow resets transport ──────────────
+
+  it('emits error and resets when frame buffer exceeds 1MB', () => {
+    const errors: string[] = [];
+    transport.on('error', (msg: string) => errors.push(msg));
+
+    // Enter receiving, start a frame
+    transport.receive(Buffer.from([ASTM.ENQ]));
+    transport.receive(Buffer.from([ASTM.STX]));
+
+    // Send >1MB of data without a CR+LF terminator
+    const chunk = Buffer.alloc(64 * 1024, 0x41); // 64KB of 'A's
+    for (let i = 0; i < 17; i++) {
+      // 17 * 64KB = 1088KB > 1MB
+      transport.receive(chunk);
+    }
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatch(/buffer overflow/i);
+    expect(transport.state).toBe('idle');
+  });
+
+  // ─── Test 13: Receive timeout after ENQ with no EOT ──────────────
+
+  describe('receive timeout', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('emits error and resets to idle after 30s with no EOT', () => {
+      const errors: string[] = [];
+      transport.on('error', (msg: string) => errors.push(msg));
+
+      transport.receive(Buffer.from([ASTM.ENQ]));
+      expect(transport.state).toBe('receiving');
+
+      // Advance time past the timeout
+      vi.advanceTimersByTime(RECEIVE_TIMEOUT_MS);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toMatch(/receive timeout/i);
+      expect(transport.state).toBe('idle');
+    });
+
+    it('does not emit timeout error if EOT arrives in time', () => {
+      const errors: string[] = [];
+      transport.on('error', (msg: string) => errors.push(msg));
+
+      transport.receive(Buffer.from([ASTM.ENQ]));
+      expect(transport.state).toBe('receiving');
+
+      // EOT arrives well before the timeout
+      vi.advanceTimersByTime(5000);
+      transport.receive(Buffer.from([ASTM.EOT]));
+      expect(transport.state).toBe('idle');
+
+      // Advance past the original timeout — should NOT fire
+      vi.advanceTimersByTime(RECEIVE_TIMEOUT_MS);
+
+      expect(errors).toHaveLength(0);
+    });
   });
 });

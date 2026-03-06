@@ -24,11 +24,6 @@ export function createResultsRouter(deps: ResultsDeps): Router {
   router.get('/:barcode', (req: Request, res: Response) => {
     const barcode = String(req.params.barcode);
 
-    if (!barcode) {
-      res.status(400).json({ error: 'Barcode is required' });
-      return;
-    }
-
     const labResults = deps.resultStore.get(barcode);
 
     if (!labResults) {

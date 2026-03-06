@@ -21,7 +21,7 @@ class MockConnection extends EventEmitter implements IConnection {
     this.emit('close');
   }
 
-  async write(data: Buffer): Promise<void> {
+  async write(_data: Buffer): Promise<void> {
     if (!this._open) throw new Error('Not connected');
     // In a real driver, this would send bytes to a device
   }

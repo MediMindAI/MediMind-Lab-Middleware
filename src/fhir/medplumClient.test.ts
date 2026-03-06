@@ -157,6 +157,55 @@ describe('findByBarcode()', () => {
     expect(result!.specimenId).toBe('');
     expect(result!.serviceRequestId).toBe('sr-err');
   });
+
+  it('returns empty specimenId when Specimen search returns empty array', async () => {
+    const mockSR: Partial<ServiceRequest> = {
+      id: 'sr-empty-spec',
+      resourceType: 'ServiceRequest',
+      subject: { reference: 'Patient/pat-empty' },
+    };
+    mockSearchOne.mockResolvedValueOnce(mockSR);
+    mockSearchResources.mockResolvedValueOnce([]);
+
+    const result = await findByBarcode(mockClient, '44444444');
+    expect(result).not.toBeNull();
+    expect(result!.specimenId).toBe('');
+    expect(result!.specimenReference).toBe('');
+  });
+
+  it('returns empty specimenId when Specimen has no id field', async () => {
+    const mockSR: Partial<ServiceRequest> = {
+      id: 'sr-noid',
+      resourceType: 'ServiceRequest',
+      subject: { reference: 'Patient/pat-noid' },
+    };
+    const mockSpecNoId: Partial<Specimen> = {
+      resourceType: 'Specimen',
+      // id is undefined
+    };
+    mockSearchOne.mockResolvedValueOnce(mockSR);
+    mockSearchResources.mockResolvedValueOnce([mockSpecNoId]);
+
+    const result = await findByBarcode(mockClient, '55555555');
+    expect(result).not.toBeNull();
+    expect(result!.specimenId).toBe('');
+    expect(result!.specimenReference).toBe('');
+  });
+
+  it('continues without specimen when Specimen search throws', async () => {
+    const mockSR: Partial<ServiceRequest> = {
+      id: 'sr-throw',
+      resourceType: 'ServiceRequest',
+      subject: { reference: 'Patient/pat-throw' },
+    };
+    mockSearchOne.mockResolvedValueOnce(mockSR);
+    mockSearchResources.mockRejectedValueOnce(new Error('Timeout'));
+
+    const result = await findByBarcode(mockClient, '66666666');
+    expect(result).not.toBeNull();
+    expect(result!.specimenId).toBe('');
+    expect(result!.serviceRequestId).toBe('sr-throw');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -178,6 +227,7 @@ describe('executeFHIRBundle()', () => {
 
     const observation: Partial<Observation> = {
       resourceType: 'Observation',
+      id: 'test-uuid-123',
       status: 'preliminary',
     };
 
@@ -192,6 +242,41 @@ describe('executeFHIRBundle()', () => {
     expect(sentBundle.entry![0].request?.method).toBe('POST');
     expect(sentBundle.entry![0].request?.url).toBe('Observation');
     expect(sentBundle.entry![0].resource).toEqual(observation);
+  });
+
+  it('includes fullUrl matching urn:uuid:<resource.id> on each entry', async () => {
+    mockExecuteBatch.mockResolvedValueOnce({
+      resourceType: 'Bundle',
+      type: 'transaction-response',
+      entry: [
+        { response: { status: '201 Created' } },
+        { response: { status: '201 Created' } },
+      ],
+    });
+
+    const obs1 = { resourceType: 'Observation' as const, id: 'uuid-aaa', status: 'preliminary' as const, code: { text: 'test' } };
+    const obs2 = { resourceType: 'Observation' as const, id: 'uuid-bbb', status: 'preliminary' as const, code: { text: 'test' } };
+
+    await executeFHIRBundle(mockClient, [obs1, obs2]);
+
+    const sentBundle = mockExecuteBatch.mock.calls[0][0] as Bundle;
+    expect(sentBundle.entry![0].fullUrl).toBe('urn:uuid:uuid-aaa');
+    expect(sentBundle.entry![1].fullUrl).toBe('urn:uuid:uuid-bbb');
+  });
+
+  it('omits fullUrl when resource has no id', async () => {
+    mockExecuteBatch.mockResolvedValueOnce({
+      resourceType: 'Bundle',
+      type: 'transaction-response',
+      entry: [{ response: { status: '201 Created' } }],
+    });
+
+    const obs = { resourceType: 'Observation' as const, status: 'preliminary' as const, code: { text: 'test' } };
+
+    await executeFHIRBundle(mockClient, [obs]);
+
+    const sentBundle = mockExecuteBatch.mock.calls[0][0] as Bundle;
+    expect(sentBundle.entry![0].fullUrl).toBeUndefined();
   });
 
   it('handles multiple resources in one bundle', async () => {

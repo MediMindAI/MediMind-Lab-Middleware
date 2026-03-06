@@ -91,6 +91,7 @@ export async function executeFHIRBundle(
     resourceType: 'Bundle',
     type: 'transaction',
     entry: resources.map((resource) => ({
+      fullUrl: resource.id ? `urn:uuid:${resource.id}` : undefined,
       resource,
       request: {
         method: 'POST' as const,

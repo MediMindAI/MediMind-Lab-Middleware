@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import net from 'node:net';
 import { ConnectionManager } from './connectionManager.js';
 import { MockSerialPort } from '../simulators/mockSerial.js';
-import type { AnalyzerConfig, SerialAnalyzer, TcpAnalyzer } from '../types/analyzer.js';
+import type { SerialAnalyzer, TcpAnalyzer } from '../types/analyzer.js';
 
 // Track mock serial ports so tests can simulate data/errors
 let mockPorts: Map<string, MockSerialPort>;
@@ -311,6 +311,49 @@ describe('ConnectionManager', () => {
       // We verify the formula caps at 30s
       const maxDelay = Math.min(30_000, 1000 * Math.pow(2, 10));
       expect(maxDelay).toBe(30_000);
+    });
+
+    it('schedules another reconnect when reconnection attempt fails', async () => {
+      // Use a factory that succeeds on first call but fails on reconnect
+      let callCount = 0;
+      let firstMock: MockSerialPort | null = null;
+      const failOnReconnectFactory = (config: { port: string; baudRate: number }) => {
+        callCount++;
+        const mock = new MockSerialPort({ path: config.port, baudRate: config.baudRate });
+        if (callCount === 1) {
+          firstMock = mock;
+        } else {
+          // Make open() fail on reconnect attempts
+          mock.open = (cb?: (err: Error | null) => void) => {
+            if (cb) cb(new Error('Reconnect failed'));
+          };
+        }
+        return mock;
+      };
+
+      const manager = new ConnectionManager([SERIAL_ANALYZER], failOnReconnectFactory);
+      const reconnectHandler = vi.fn();
+      manager.on('reconnecting', reconnectHandler);
+      manager.on('error', () => {});
+
+      await manager.startAll();
+      expect(manager.getStatuses()[0].connected).toBe(true);
+
+      // Simulate disconnect — triggers reconnect
+      firstMock!.emit('close');
+      expect(manager.getStatuses()[0].connected).toBe(false);
+
+      // Advance past first backoff — reconnect will fail
+      await vi.advanceTimersByTimeAsync(1000);
+
+      // Connection should still be disconnected since reconnect failed
+      expect(manager.getStatuses()[0].connected).toBe(false);
+      expect(manager.getStatuses()[0].errorsCount).toBeGreaterThan(0);
+
+      // A second reconnect should have been scheduled
+      expect(reconnectHandler).toHaveBeenCalledTimes(2);
+
+      await manager.stopAll();
     });
 
     it('stopAll cancels pending reconnect timers', async () => {

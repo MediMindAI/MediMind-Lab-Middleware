@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { loadConfig, getEnabledAnalyzers } from './configLoader.js';
-import type { AppConfig, AnalyzerConfig } from '../types/analyzer.js';
+import type { AppConfig } from '../types/analyzer.js';
 
 // ---------------------------------------------------------------------------
 // Helpers — build valid config objects and write them to temp files
@@ -181,6 +181,8 @@ describe('loadConfig()', () => {
     process.env.CONFIG_PATH = filePath;
 
     expect(() => loadConfig()).toThrow('medplum.baseUrl');
+    expect(() => loadConfig()).toThrow('medplum.clientId');
+    expect(() => loadConfig()).toThrow('medplum.clientSecret');
   });
 
   it('throws when medplum.clientId is missing', () => {
@@ -190,6 +192,25 @@ describe('loadConfig()', () => {
     process.env.CONFIG_PATH = filePath;
 
     expect(() => loadConfig()).toThrow('medplum.clientId');
+  });
+
+  it('throws when medplum.clientSecret is missing', () => {
+    const config = buildValidConfig();
+    config.medplum.clientSecret = '';
+    const filePath = writeTempConfig(config);
+    process.env.CONFIG_PATH = filePath;
+
+    expect(() => loadConfig()).toThrow('clientSecret');
+  });
+
+  it('throws when API_PORT is not a number', () => {
+    const config = buildValidConfig();
+    const filePath = writeTempConfig(config);
+    process.env.CONFIG_PATH = filePath;
+    process.env.API_PORT = 'abc';
+
+    expect(() => loadConfig()).toThrow('Invalid API_PORT');
+    expect(() => loadConfig()).toThrow('"abc"');
   });
 
   it('throws on duplicate analyzer IDs', () => {

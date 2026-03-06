@@ -21,6 +21,10 @@ import { ASTM } from '../../types/astm.js';
 import { calculateChecksum } from './checksum.js';
 
 const MAX_NAK_RETRIES = 6;
+/** Maximum frame buffer size (1 MB). Prevents unbounded memory growth from malformed data. */
+export const MAX_BUFFER_SIZE = 1_048_576;
+/** If no EOT is received within this many ms after ENQ, the session is abandoned. */
+export const RECEIVE_TIMEOUT_MS = 30_000;
 
 export class ASTMTransport extends EventEmitter {
   private _state: 'idle' | 'receiving' = 'idle';
@@ -28,6 +32,7 @@ export class ASTMTransport extends EventEmitter {
   private _nakCount = 0;
   private _frameBuffer: number[] = [];
   private _inFrame = false;
+  private _receiveTimer: ReturnType<typeof setTimeout> | null = null;
 
   get state(): string {
     return this._state;
@@ -46,6 +51,12 @@ export class ASTMTransport extends EventEmitter {
   private processByte(byte: number): void {
     // If we're inside a frame (between STX and CR+LF), buffer the bytes
     if (this._inFrame) {
+      // Guard: prevent unbounded memory growth from malformed data
+      if (this._frameBuffer.length >= MAX_BUFFER_SIZE) {
+        this.emit('error', 'Frame buffer overflow (>1MB) — resetting');
+        this.reset();
+        return;
+      }
       this._frameBuffer.push(byte);
       // A complete frame ends with: ETX/ETB + checksum(2 bytes) + CR + LF
       // Check for CR + LF at the end (minimum frame: STX fn ETX cs cs CR LF)
@@ -83,10 +94,12 @@ export class ASTMTransport extends EventEmitter {
     this._state = 'receiving';
     this._frames = [];
     this._nakCount = 0;
+    this.startReceiveTimer();
     this.emit('response', ASTM.ACK);
   }
 
   private handleEOT(): void {
+    this.clearReceiveTimer();
     if (this._state === 'receiving') {
       this.emit('message', [...this._frames]);
     }
@@ -99,10 +112,6 @@ export class ASTMTransport extends EventEmitter {
     // Frame bytes are everything AFTER STX: frameNum + data + ETX/ETB + cs1 + cs2 + CR + LF
     // Layout: [frameNum, ...data, terminator, cs1, cs2, CR, LF]
     const len = bytes.length;
-    if (len < 5) {
-      this.sendNAK();
-      return;
-    }
 
     // Extract parts (bytes array does NOT include STX, that was consumed before buffering)
     const checksumChars = String.fromCharCode(bytes[len - 4], bytes[len - 3]);
@@ -143,7 +152,23 @@ export class ASTMTransport extends EventEmitter {
     }
   }
 
+  private startReceiveTimer(): void {
+    this.clearReceiveTimer();
+    this._receiveTimer = setTimeout(() => {
+      this.emit('error', `Receive timeout — no EOT received within ${RECEIVE_TIMEOUT_MS / 1000}s`);
+      this.reset();
+    }, RECEIVE_TIMEOUT_MS);
+  }
+
+  private clearReceiveTimer(): void {
+    if (this._receiveTimer !== null) {
+      clearTimeout(this._receiveTimer);
+      this._receiveTimer = null;
+    }
+  }
+
   private reset(): void {
+    this.clearReceiveTimer();
     this._state = 'idle';
     this._frames = [];
     this._nakCount = 0;

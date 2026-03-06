@@ -17,3 +17,6 @@ Thumbs.db
 coverage/
 .vscode/
 .idea/
+
+# Real analyzer config (only template is tracked)
+config/analyzers.json

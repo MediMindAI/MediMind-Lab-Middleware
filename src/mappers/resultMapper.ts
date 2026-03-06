@@ -70,6 +70,7 @@ function buildComponent(
     referenceRange: referenceRange || entry?.defaultReferenceRange || '',
     flag,
     status,
+    loincCode: entry?.loinc,
   };
 }
 

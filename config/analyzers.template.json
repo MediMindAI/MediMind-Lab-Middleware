@@ -1,0 +1,303 @@
+{
+  "_readme": {
+    "description": "MediMind Lab Middleware — Analyzer Configuration Template",
+    "instructions": [
+      "1. Copy this file to 'analyzers.json' in the same folder",
+      "2. Fill in the actual COM port numbers from Windows Device Manager",
+      "3. Verify baud rate / parity / data bits match each analyzer's LIS settings",
+      "4. Set 'enabled: false' for any analyzer not yet connected",
+      "5. Fill in Medplum credentials in the 'medplum' section (or use .env file)",
+      "6. Start the middleware: npm start"
+    ],
+    "how_to_find_com_ports": [
+      "Windows: Device Manager > Ports (COM & LPT) — each USB-to-serial adapter shows as 'COM#'",
+      "Tip: Plug in ONE adapter at a time and note which COM# appears — label the cable!"
+    ]
+  },
+
+  "analyzers": [
+    {
+      "id": "sysmex-xn550",
+      "name": "Sysmex XN-550",
+      "protocol": "astm",
+      "connection": "serial",
+      "port": "COM__",
+      "baudRate": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "enabled": false,
+      "_setup_notes": {
+        "type": "Hematology (CBC, Diff)",
+        "cable": "DB-9 straight-through serial cable (or USB-to-serial adapter)",
+        "analyzer_menu": "Utility > Communication > Host Interface Settings",
+        "default_baud": 9600,
+        "default_protocol": "ASTM E1381-02 / E1394-97",
+        "also_supports": "Ethernet TCP — set connection to 'tcp' and add host/tcpPort if preferred",
+        "vendor_doc": "Sysmex XN-Series Host Interface Manual (PN: WA-2260)",
+        "test_codes": ["WBC", "RBC", "HGB", "HCT", "PLT", "MCV", "MCH", "MCHC", "RDW-SD", "RDW-CV", "NEUT%", "LYMPH%", "MONO%", "EO%", "BASO%", "NEUT#", "LYMPH#", "MONO#", "EO#", "BASO#", "MPV", "PDW", "PCT", "P-LCR", "NRBC%", "NRBC#", "IG%", "IG#"]
+      }
+    },
+
+    {
+      "id": "roche-cobas-c111",
+      "name": "Roche Cobas c 111",
+      "protocol": "astm",
+      "connection": "serial",
+      "port": "COM__",
+      "baudRate": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "enabled": false,
+      "_setup_notes": {
+        "type": "Clinical Chemistry",
+        "cable": "DB-9 null-modem (crossed) cable — Roche requires null-modem!",
+        "analyzer_menu": "System > Communication > Host Settings",
+        "default_baud": 9600,
+        "default_protocol": "ASTM E1381 / E1394",
+        "vendor_doc": "Cobas c 111 Operator's Manual, Chapter 12: LIS Interface",
+        "important": "Cobas c111 uses NULL-MODEM cable (pins 2-3 crossed). Straight cable will NOT work.",
+        "test_codes": ["GLU", "BUN", "CREA", "UA", "CHOL", "TRIG", "HDL", "LDL", "AST", "ALT", "ALP", "GGT", "TBIL", "DBIL", "TP", "ALB", "AMY", "LIP", "CK", "CK-MB", "LDH", "Ca", "Mg", "PHOS", "Fe", "TIBC", "Na", "K", "Cl", "CO2"]
+      }
+    },
+
+    {
+      "id": "roche-cobas-e411",
+      "name": "Roche Cobas e 411",
+      "protocol": "astm",
+      "connection": "serial",
+      "port": "COM__",
+      "baudRate": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "enabled": false,
+      "_setup_notes": {
+        "type": "Immunoassay (ECLIA)",
+        "cable": "DB-9 null-modem (crossed) cable — same as Cobas c111",
+        "analyzer_menu": "System > Communication > Host Settings",
+        "default_baud": 9600,
+        "default_protocol": "ASTM E1381 / E1394",
+        "vendor_doc": "Cobas e 411 Operator's Manual, Chapter 12: LIS Interface",
+        "important": "Same null-modem cable requirement as Cobas c111",
+        "test_codes": ["TSH", "FT4", "FT3", "T3", "T4", "FSH", "LH", "PRL", "E2", "PROG", "TESTO", "CORT", "DHEAS", "HCG", "AFP", "CEA", "CA125", "CA15-3", "CA19-9", "PSA", "fPSA", "FER", "VitB12", "FOL", "VitD", "PTH", "INS", "CPEP", "TnT-hs", "proBNP", "CRP-hs"]
+      }
+    },
+
+    {
+      "id": "roche-hitachi",
+      "name": "Roche/Hitachi 917",
+      "protocol": "astm",
+      "connection": "serial",
+      "port": "COM__",
+      "baudRate": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "enabled": false,
+      "_setup_notes": {
+        "type": "Clinical Chemistry (high-throughput)",
+        "cable": "DB-9 null-modem cable (Roche standard)",
+        "analyzer_menu": "Host Communication Setup via Service mode",
+        "default_baud": 9600,
+        "default_protocol": "ASTM E1381 / E1394",
+        "vendor_doc": "Hitachi 917 Host Interface Manual",
+        "important": "Older machine — may need firmware check for ASTM compliance. Some versions use 7 data bits + even parity instead of 8-N-1.",
+        "check_with_lab": "Ask lab tech: does this machine currently use 7-E-1 or 8-N-1? Check the old Georgian LIS settings.",
+        "test_codes": ["GLU", "BUN", "CREA", "CHOL", "TRIG", "HDL", "AST", "ALT", "ALP", "GGT", "TBIL", "TP", "ALB", "AMY", "CK", "LDH", "Ca", "PHOS", "Fe", "Na", "K", "Cl"]
+      }
+    },
+
+    {
+      "id": "bio-rad-d10",
+      "name": "Bio-Rad D-10",
+      "protocol": "astm",
+      "connection": "serial",
+      "port": "COM__",
+      "baudRate": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "enabled": false,
+      "_setup_notes": {
+        "type": "HbA1c / Hemoglobin Variants (HPLC)",
+        "cable": "DB-9 serial cable (check manual for straight vs null-modem)",
+        "analyzer_menu": "Setup > Communication > LIS Interface",
+        "default_baud": 9600,
+        "default_protocol": "LIS1-A / LIS2-A (ASTM-compatible)",
+        "vendor_doc": "D-10 Hemoglobin Testing System Operator's Manual, Section 8: LIS Interface",
+        "important": "Bio-Rad uses LIS2-A which is ASTM E1394-compatible. Our ASTM parser handles it.",
+        "test_codes": ["HbA1c", "HbA1", "HbF", "HbA2", "HbS", "HbC", "HbD", "HbE"]
+      }
+    },
+
+    {
+      "id": "tosoh-aia360",
+      "name": "Tosoh AIA-360",
+      "protocol": "astm",
+      "connection": "serial",
+      "port": "COM__",
+      "baudRate": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "enabled": false,
+      "_setup_notes": {
+        "type": "Immunoassay (Enzyme Immunoassay)",
+        "cable": "DB-9 serial cable",
+        "analyzer_menu": "Maintenance > Communication Settings",
+        "default_baud": 9600,
+        "default_protocol": "ASTM (LIS2-A compatible)",
+        "vendor_doc": "AIA-360 Operator's Manual, Chapter on Host Interface",
+        "test_codes": ["TSH", "FT4", "FT3", "HCG", "AFP", "CEA", "PSA", "FER", "VitB12", "FOL", "CRP"]
+      }
+    },
+
+    {
+      "id": "snibe-maglumi-x3",
+      "name": "Snibe Maglumi X3",
+      "protocol": "astm",
+      "connection": "tcp",
+      "host": "192.168.1.__",
+      "tcpPort": 5000,
+      "enabled": false,
+      "_setup_notes": {
+        "type": "Chemiluminescence Immunoassay (CLIA)",
+        "cable": "Ethernet cable (RJ-45) — this is the one TCP analyzer",
+        "analyzer_menu": "System Setup > Communication > LIS Settings",
+        "default_port": 5000,
+        "default_protocol": "ASTM E1394 over TCP/IP",
+        "vendor_doc": "Maglumi X3 LIS Interface Manual",
+        "network_setup": [
+          "1. Assign the Maglumi a static IP on the lab network (e.g., 192.168.1.60)",
+          "2. Set the 'host' field above to that IP address",
+          "3. Ensure the lab PC and Maglumi are on the same subnet",
+          "4. Default TCP port is 5000 — change if needed in both analyzer and here"
+        ],
+        "also_supports": "Serial RS-232 — change connection to 'serial' and add port/baudRate if preferred",
+        "test_codes": ["TSH", "FT4", "FT3", "FSH", "LH", "PRL", "E2", "PROG", "TESTO", "CORT", "HCG", "AFP", "CEA", "CA125", "CA15-3", "CA19-9", "PSA", "FER", "VitB12", "FOL", "VitD", "PCT", "IL-6", "CRP-hs", "TnI", "proBNP", "AMH"]
+      }
+    },
+
+    {
+      "id": "mindray-bc3510",
+      "name": "Mindray BC-3510",
+      "protocol": "hl7v2",
+      "connection": "serial",
+      "port": "COM__",
+      "baudRate": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "enabled": false,
+      "_setup_notes": {
+        "type": "Hematology (3-part differential CBC)",
+        "cable": "DB-9 serial cable (check Mindray manual for pin assignment)",
+        "analyzer_menu": "Setup > Communication > LIS > Protocol: HL7",
+        "default_baud": 9600,
+        "default_protocol": "HL7 v2.3.1 (ORU^R01 messages)",
+        "vendor_doc": "BC-3510 Operator's Manual, Chapter: LIS Communication",
+        "important": "This is the ONLY HL7v2 analyzer. Make sure 'Protocol' is set to 'HL7' in the analyzer menu, NOT 'ASTM'. Some Mindray models support both.",
+        "test_codes": ["WBC", "RBC", "HGB", "HCT", "PLT", "MCV", "MCH", "MCHC", "RDW-CV", "RDW-SD", "MPV", "PDW", "PCT", "LYM%", "MID%", "GRN%", "LYM#", "MID#", "GRN#"]
+      }
+    },
+
+    {
+      "id": "mindray-bc7600",
+      "name": "Mindray BC-7600",
+      "protocol": "hl7v2",
+      "connection": "tcp-server",
+      "listenPort": 5001,
+      "listenHost": "0.0.0.0",
+      "enabled": false,
+      "_setup_notes": {
+        "type": "Hematology (5-part differential CBC + reticulocytes + CRP)",
+        "connection_mode": "TCP Server — the Mindray LabXpert software connects TO us on listenPort",
+        "labxpert_config": "LabXpert > Communication > Channel: TcpClient, Remote IP: <this PC's IP>, Remote Port: 5001",
+        "default_protocol": "HL7 v2.3.1 (ORU^R01 messages) via MLLP over TCP",
+        "vendor_doc": "Mindray BC-7600 LIS Interface Manual + LabXpert Configuration Guide",
+        "important": "This analyzer uses LabXpert middleware software — configure LabXpert's TcpClient to point at this middleware's IP:port.",
+        "serial_fallback": "If using RS-232 instead of LabXpert TCP, change connection to 'serial' and add port/baudRate/dataBits/parity/stopBits",
+        "test_codes": ["WBC", "NEU#", "NEU%", "LYM#", "LYM%", "MON#", "MON%", "EOS#", "EOS%", "BAS#", "BAS%", "RBC", "HGB", "HCT", "MCV", "MCH", "MCHC", "RDW-CV", "RDW-SD", "PLT", "MPV", "PDW", "PCT", "NRBC#", "NRBC%", "RET#", "RET%", "IRF", "IMG#", "IMG%", "CRP", "HS-CRP"]
+      }
+    },
+
+    {
+      "id": "siemens-rapidpoint-500e",
+      "name": "Siemens RapidPoint 500e",
+      "protocol": "siemens-lis3",
+      "connection": "serial",
+      "port": "COM__",
+      "baudRate": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "enabled": false,
+      "_setup_notes": {
+        "type": "Blood Gas / Electrolytes / Co-Oximetry",
+        "cable": "DB-9 serial cable + Ethernet available",
+        "status": "DISABLED — protocol not yet implemented",
+        "blocker": "Siemens LIS3 is a proprietary protocol. We need the interface specification document (Siemens doc #10844061).",
+        "action_items": [
+          "1. Contact Siemens Healthineers support or your local Siemens rep",
+          "2. Request 'RapidPoint 500e LIS3 Host Interface Specification' (document #10844061)",
+          "3. Alternative: Check if firmware supports HL7v2 output — some versions do (Settings > Data Management > LIS Protocol)",
+          "4. Alternative: Keep this analyzer on the old Georgian LIS temporarily"
+        ],
+        "test_codes": ["pH", "pCO2", "pO2", "Na+", "K+", "Ca++", "Cl-", "Glu", "Lac", "tHb", "O2Hb", "COHb", "MetHb", "HHb", "sO2", "Hct"]
+      }
+    },
+
+    {
+      "id": "combilyzer-13",
+      "name": "77 Elektronika Combilyzer 13",
+      "protocol": "combilyzer",
+      "connection": "serial",
+      "port": "COM__",
+      "baudRate": 9600,
+      "dataBits": 8,
+      "parity": "none",
+      "stopBits": 1,
+      "enabled": false,
+      "_setup_notes": {
+        "type": "Urinalysis (urine test strips + sediment)",
+        "cable": "DB-9 serial cable",
+        "analyzer_menu": "Setup > Communication > LIS Output: ON",
+        "default_baud": 9600,
+        "default_protocol": "Proprietary (simplified ASTM-like)",
+        "vendor_doc": "Combilyzer 13 User Manual, Appendix: RS-232 Data Output Format",
+        "important": "UNIDIRECTIONAL — this analyzer only SENDS results, it does NOT accept orders. Just connect and it pushes data automatically after each test.",
+        "test_codes": ["GLU", "PRO", "BIL", "URO", "pH", "BLD", "KET", "NIT", "LEU", "SG", "ASC", "COL", "CLA"]
+      }
+    }
+  ],
+
+  "medplum": {
+    "baseUrl": "https://api.medplum.com",
+    "projectId": "71c7841a-7f47-4029-8ab4-0bf62751c173",
+    "clientId": "c7d601b8-758f-4c90-b4dd-2fe8e1d66973",
+    "clientSecret": "PASTE_YOUR_CLIENT_SECRET_HERE"
+  },
+
+  "api": {
+    "port": 3001,
+    "host": "0.0.0.0",
+    "_note": "REST API for MediMind EMR to query status. 0.0.0.0 allows connections from other machines on the network."
+  },
+
+  "queue": {
+    "dbPath": "./data/queue.db",
+    "retryIntervalMs": 30000,
+    "maxRetries": 10,
+    "_note": "Offline queue — results saved to SQLite when internet is down. Retries every 30 seconds, max 10 attempts."
+  },
+
+  "logging": {
+    "level": "info",
+    "dir": "./logs",
+    "maxFiles": 30,
+    "maxSizeMb": 50,
+    "_note": "Log files kept for 30 days, max 50MB each. Set level to 'debug' for troubleshooting."
+  }
+}

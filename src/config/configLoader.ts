@@ -37,6 +37,9 @@ export function loadConfig(): AppConfig {
   }
   if (process.env.API_PORT) {
     rawConfig.api.port = parseInt(process.env.API_PORT, 10);
+    if (isNaN(rawConfig.api.port)) {
+      throw new Error(`Invalid API_PORT: "${process.env.API_PORT}" is not a number`);
+    }
   }
   if (process.env.LOG_LEVEL) {
     rawConfig.logging.level = process.env.LOG_LEVEL;
@@ -57,8 +60,8 @@ function validateConfig(config: AppConfig): void {
     throw new Error('Config must have an "analyzers" array');
   }
 
-  if (!config.medplum?.baseUrl || !config.medplum?.clientId) {
-    throw new Error('Config must have medplum.baseUrl and medplum.clientId');
+  if (!config.medplum?.baseUrl || !config.medplum?.clientId || !config.medplum?.clientSecret) {
+    throw new Error('Config must have medplum.baseUrl, medplum.clientId, and medplum.clientSecret');
   }
 
   const enabledAnalyzers = config.analyzers.filter((a) => a.enabled);

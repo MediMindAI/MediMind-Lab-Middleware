@@ -22,8 +22,15 @@ const VT = 0x0b;
 const FS = 0x1c;
 /** Carriage Return — follows FS to complete the end marker */
 const CR = 0x0d;
+/** Maximum buffer size (1 MB). Prevents unbounded memory growth from malformed data. */
+export const MAX_BUFFER_SIZE = 1_048_576;
 
 export class MLLPTransport extends EventEmitter {
+  /** Wrap a message string in MLLP framing (VT + content + FS + CR) for sending */
+  static wrapFrame(message: string): Buffer {
+    return Buffer.from([VT, ...Buffer.from(message), FS, CR]);
+  }
+
   /** Accumulates incoming bytes between frames */
   private buffer: Buffer = Buffer.alloc(0);
   /** Whether we've seen a VT start byte and are collecting message content */
@@ -34,6 +41,13 @@ export class MLLPTransport extends EventEmitter {
    * May be called with partial data — buffering handles the rest.
    */
   receive(data: Buffer): void {
+    // Guard: prevent unbounded memory growth from malformed data
+    if (this.buffer.length + data.length > MAX_BUFFER_SIZE) {
+      this.emit('error', 'Buffer overflow (>1MB) — resetting');
+      this.buffer = Buffer.alloc(0);
+      this.inFrame = false;
+      return;
+    }
     this.buffer = Buffer.concat([this.buffer, data]);
     this.extractFrames();
   }

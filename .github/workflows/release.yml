@@ -1,0 +1,75 @@
+name: Build Release ZIP
+
+# Triggers when you push a version tag: git tag v0.1.0 && git push --tags
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install production dependencies
+        run: npm ci --omit=dev
+
+      - name: Compile TypeScript
+        run: npx tsc
+
+      - name: Create release directory structure
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
+          $dir = "release-package"
+
+          # Create directories
+          New-Item -ItemType Directory -Path "$dir/config" -Force
+          New-Item -ItemType Directory -Path "$dir/data" -Force
+          New-Item -ItemType Directory -Path "$dir/logs" -Force
+          New-Item -ItemType Directory -Path "$dir/scripts" -Force
+
+          # Copy built output + runtime files
+          Copy-Item -Recurse "dist" "$dir/dist"
+          Copy-Item -Recurse "node_modules" "$dir/node_modules"
+          Copy-Item "package.json" "$dir/"
+          Copy-Item ".env.example" "$dir/"
+          Copy-Item "SETUP.md" "$dir/"
+          Copy-Item "install.bat" "$dir/"
+          Copy-Item "uninstall.bat" "$dir/"
+
+          # Config files
+          Copy-Item "config/bc7600-default.json" "$dir/config/"
+          Copy-Item "config/analyzers.template.json" "$dir/config/"
+
+          # Scripts (Windows service installer)
+          if (Test-Path "scripts") {
+            Copy-Item "scripts/*" "$dir/scripts/" -Recurse
+          }
+
+          # Create placeholder files so empty dirs are included
+          New-Item -ItemType File -Path "$dir/data/.gitkeep" -Force
+          New-Item -ItemType File -Path "$dir/logs/.gitkeep" -Force
+
+      - name: Create ZIP
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
+          $zipName = "medimind-lab-middleware-$version-win-x64.zip"
+          Compress-Archive -Path "release-package/*" -DestinationPath $zipName
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: medimind-lab-middleware-*.zip
+          generate_release_notes: true

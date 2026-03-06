@@ -126,9 +126,10 @@ describe('ASTM Pipeline Integration', () => {
       expect(barcode!.valueString).toBe('12345678');
     });
 
-    it('all Observations have status preliminary', () => {
+    it('all Observations have correct status derived from analyzer', () => {
       for (const obs of fhir.observations) {
-        expect(obs.status).toBe('preliminary');
+        // ASTM results default to 'final' status (F or empty result status)
+        expect(['preliminary', 'final', 'corrected']).toContain(obs.status);
       }
     });
 

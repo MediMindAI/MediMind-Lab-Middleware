@@ -31,6 +31,7 @@ export interface PipelineSender {
 /** The queue just needs to accept a LabResult for later retry */
 export interface PipelineQueue {
   enqueue: (labResult: LabResult) => number;
+  markSent: (id: number) => void;
 }
 
 /** The logger just needs to accept a log entry object */
@@ -79,7 +80,7 @@ export class ResultPipeline extends EventEmitter {
       const labResults = mapASTMToLabResults(parsed, analyzerId);
       this.emitStage('mapped', analyzerId, messageId, { componentCount: labResults.length });
 
-      await this.sendResults(analyzerId, messageId, labResults, rawFrameData);
+      await this.sendResults(analyzerId, messageId, labResults, rawFrameData, 'astm');
     } catch (err) {
       this.emitError(analyzerId, messageId, err);
     }
@@ -97,7 +98,7 @@ export class ResultPipeline extends EventEmitter {
       const labResults = mapHL7v2ToLabResults(parsed, analyzerId);
       this.emitStage('mapped', analyzerId, messageId, { componentCount: labResults.length });
 
-      await this.sendResults(analyzerId, messageId, labResults, rawMessage);
+      await this.sendResults(analyzerId, messageId, labResults, rawMessage, 'hl7v2');
     } catch (err) {
       this.emitError(analyzerId, messageId, err);
     }
@@ -115,7 +116,7 @@ export class ResultPipeline extends EventEmitter {
       const labResults = mapCombilyzerToLabResults(parsed, analyzerId);
       this.emitStage('mapped', analyzerId, messageId, { componentCount: labResults.length });
 
-      await this.sendResults(analyzerId, messageId, labResults, rawOutput);
+      await this.sendResults(analyzerId, messageId, labResults, rawOutput, 'combilyzer');
     } catch (err) {
       this.emitError(analyzerId, messageId, err);
     }
@@ -125,21 +126,42 @@ export class ResultPipeline extends EventEmitter {
   // Internal helpers
   // ---------------------------------------------------------------------------
 
-  /** Try to send each LabResult to Medplum; queue on failure. */
+  /**
+   * Queue each LabResult first (crash safety), then try to send to Medplum.
+   * If send succeeds, mark the queue entry as sent.
+   * If send fails, the item is already safely queued for retry.
+   */
   private async sendResults(
     analyzerId: string,
     messageId: string,
     labResults: LabResult[],
     rawContent: string,
+    protocol?: string,
   ): Promise<void> {
     for (const labResult of labResults) {
+      // Step 1: Queue first for crash safety
+      let queueId: number;
+      try {
+        queueId = this.deps.queue.enqueue(labResult);
+      } catch (enqueueErr) {
+        // CRITICAL: queue itself failed — result may be lost
+        const errMsg = enqueueErr instanceof Error ? enqueueErr.message : String(enqueueErr);
+        this.emitStage('error', analyzerId, messageId, {
+          error: `CRITICAL: Queue failed — result may be lost: ${errMsg}`,
+        });
+        continue;
+      }
+
       try {
         // Map to FHIR (for logging purposes — the sender does its own mapping)
         mapLabResultToFHIR(labResult);
 
+        // Step 2: Try sending to Medplum
         const sendResult = await this.deps.resultSender.sendLabResult(labResult);
 
         if (sendResult.success) {
+          // Step 3: Mark queue entry as sent
+          this.deps.queue.markSent(queueId);
           this.deps.resultStore?.add(labResult);
           this.emitStage('sent', analyzerId, messageId, {
             barcode: labResult.specimenBarcode,
@@ -149,14 +171,14 @@ export class ResultPipeline extends EventEmitter {
             timestamp: new Date().toISOString(),
             analyzerId,
             direction: 'inbound',
+            ...(protocol ? { protocol } : {}),
             rawContent,
             barcode: labResult.specimenBarcode,
             status: 'sent',
             fhirResourceIds: sendResult.resourceIds ?? [],
           });
         } else {
-          // Send failed — queue for retry
-          this.deps.queue.enqueue(labResult);
+          // Send failed — item already in queue, just emit event
           this.emitStage('queued', analyzerId, messageId, {
             barcode: labResult.specimenBarcode,
             error: sendResult.error,
@@ -165,6 +187,7 @@ export class ResultPipeline extends EventEmitter {
             timestamp: new Date().toISOString(),
             analyzerId,
             direction: 'inbound',
+            ...(protocol ? { protocol } : {}),
             rawContent,
             barcode: labResult.specimenBarcode,
             status: 'error',
@@ -172,14 +195,14 @@ export class ResultPipeline extends EventEmitter {
           });
         }
       } catch (err) {
-        // Unexpected error — queue and log
+        // Unexpected error — item already in queue from step 1
         const errorMsg = err instanceof Error ? err.message : String(err);
-        try { this.deps.queue.enqueue(labResult); } catch { /* ignore queue errors */ }
         this.emitStage('error', analyzerId, messageId, { error: errorMsg });
         this.deps.messageLogger.logMessage({
           timestamp: new Date().toISOString(),
           analyzerId,
           direction: 'inbound',
+          ...(protocol ? { protocol } : {}),
           rawContent,
           barcode: labResult.specimenBarcode,
           status: 'error',

@@ -15,7 +15,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { sendLabResult } from './resultSender.js';
-import type { SendResult, MapToFHIRFn } from './resultSender.js';
+import type { MapToFHIRFn } from './resultSender.js';
 import type { LabResult } from '../types/result.js';
 import type { BarcodeMatch } from './types.js';
 import type { Bundle, Observation, DiagnosticReport } from '@medplum/fhirtypes';
@@ -84,7 +84,8 @@ const mockMapToFHIR: MapToFHIRFn = vi.fn().mockImplementation(() => {
   return [obs, report];
 });
 
-const mockClient = {} as any; // Only passed through — actual calls are mocked
+const mockSearchOne = vi.fn();
+const mockClient = { searchOne: mockSearchOne } as any;
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -100,6 +101,7 @@ beforeEach(() => {
 
 describe('sendLabResult()', () => {
   it('sends successfully when specimen found and bundle accepted', async () => {
+    mockSearchOne.mockResolvedValueOnce(undefined); // idempotency check — not found
     mockFindByBarcode.mockResolvedValueOnce(sampleMatch);
     mockExecuteFHIRBundle.mockResolvedValueOnce({
       resourceType: 'Bundle',
@@ -128,6 +130,7 @@ describe('sendLabResult()', () => {
   });
 
   it('returns error when specimen not found for barcode', async () => {
+    mockSearchOne.mockResolvedValueOnce(undefined); // idempotency check — not found
     mockFindByBarcode.mockResolvedValueOnce(null);
 
     const result = await sendLabResult(mockClient, buildLabResult(), mockMapToFHIR);
@@ -137,6 +140,7 @@ describe('sendLabResult()', () => {
   });
 
   it('returns error when barcode lookup throws (network error)', async () => {
+    mockSearchOne.mockResolvedValueOnce(undefined); // idempotency check — not found
     mockFindByBarcode.mockRejectedValueOnce(new Error('Connection refused'));
 
     const result = await sendLabResult(mockClient, buildLabResult(), mockMapToFHIR);
@@ -147,6 +151,7 @@ describe('sendLabResult()', () => {
   });
 
   it('returns error when FHIR mapper throws', async () => {
+    mockSearchOne.mockResolvedValueOnce(undefined); // idempotency check — not found
     mockFindByBarcode.mockResolvedValueOnce(sampleMatch);
     (mockMapToFHIR as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
       throw new Error('Unknown test code: XYZ');
@@ -160,6 +165,7 @@ describe('sendLabResult()', () => {
   });
 
   it('returns error when FHIR mapper returns empty array', async () => {
+    mockSearchOne.mockResolvedValueOnce(undefined); // idempotency check — not found
     mockFindByBarcode.mockResolvedValueOnce(sampleMatch);
     (mockMapToFHIR as ReturnType<typeof vi.fn>).mockReturnValueOnce([]);
 
@@ -170,6 +176,7 @@ describe('sendLabResult()', () => {
   });
 
   it('returns error when Medplum transaction fails', async () => {
+    mockSearchOne.mockResolvedValueOnce(undefined); // idempotency check — not found
     mockFindByBarcode.mockResolvedValueOnce(sampleMatch);
     mockExecuteFHIRBundle.mockRejectedValueOnce(new Error('Server 503'));
 
@@ -181,6 +188,7 @@ describe('sendLabResult()', () => {
   });
 
   it('passes the correct arguments to mapToFHIR', async () => {
+    mockSearchOne.mockResolvedValueOnce(undefined); // idempotency check — not found
     mockFindByBarcode.mockResolvedValueOnce(sampleMatch);
     mockExecuteFHIRBundle.mockResolvedValueOnce({
       resourceType: 'Bundle',
@@ -195,6 +203,7 @@ describe('sendLabResult()', () => {
   });
 
   it('passes the FHIR mapper output to executeFHIRBundle', async () => {
+    mockSearchOne.mockResolvedValueOnce(undefined); // idempotency check — not found
     const fakeObs = { resourceType: 'Observation' as const, status: 'preliminary' as const };
     (mockMapToFHIR as ReturnType<typeof vi.fn>).mockReturnValueOnce([fakeObs]);
     mockFindByBarcode.mockResolvedValueOnce(sampleMatch);
@@ -210,6 +219,7 @@ describe('sendLabResult()', () => {
   });
 
   it('handles response entries without location (still succeeds)', async () => {
+    mockSearchOne.mockResolvedValueOnce(undefined); // idempotency check — not found
     mockFindByBarcode.mockResolvedValueOnce(sampleMatch);
     mockExecuteFHIRBundle.mockResolvedValueOnce({
       resourceType: 'Bundle',
@@ -221,5 +231,120 @@ describe('sendLabResult()', () => {
 
     expect(result.success).toBe(true);
     expect(result.resourceIds).toEqual([]);
+  });
+
+  it('handles non-Error throw in barcode lookup', async () => {
+    mockSearchOne.mockResolvedValueOnce(undefined); // idempotency check — not found
+    mockFindByBarcode.mockRejectedValueOnce('string error');
+
+    const result = await sendLabResult(mockClient, buildLabResult(), mockMapToFHIR);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Barcode lookup failed');
+    expect(result.error).toContain('string error');
+  });
+
+  it('handles non-Error throw in FHIR mapper', async () => {
+    mockSearchOne.mockResolvedValueOnce(undefined); // idempotency check — not found
+    mockFindByBarcode.mockResolvedValueOnce(sampleMatch);
+    (mockMapToFHIR as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+      throw 'mapper string throw';
+    });
+
+    const result = await sendLabResult(mockClient, buildLabResult(), mockMapToFHIR);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('FHIR mapping failed');
+    expect(result.error).toContain('mapper string throw');
+  });
+
+  it('handles non-Error throw in Medplum transaction', async () => {
+    mockSearchOne.mockResolvedValueOnce(undefined); // idempotency check — not found
+    mockFindByBarcode.mockResolvedValueOnce(sampleMatch);
+    mockExecuteFHIRBundle.mockRejectedValueOnce('transaction string throw');
+
+    const result = await sendLabResult(mockClient, buildLabResult(), mockMapToFHIR);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Medplum transaction failed');
+    expect(result.error).toContain('transaction string throw');
+  });
+
+  it('handles response location with less than 2 parts', async () => {
+    mockSearchOne.mockResolvedValueOnce(undefined); // idempotency check — not found
+    mockFindByBarcode.mockResolvedValueOnce(sampleMatch);
+    mockExecuteFHIRBundle.mockResolvedValueOnce({
+      resourceType: 'Bundle',
+      type: 'transaction-response',
+      entry: [
+        { response: { status: '201 Created', location: 'JustOneSegment' } },
+      ],
+    });
+
+    const result = await sendLabResult(mockClient, buildLabResult(), mockMapToFHIR);
+
+    expect(result.success).toBe(true);
+    expect(result.resourceIds).toEqual([]);
+  });
+
+  // ─── Idempotency protection (Task 3.5) ─────────────────────────
+
+  it('skips creation when DiagnosticReport with same messageId already exists', async () => {
+    mockSearchOne.mockResolvedValueOnce({ resourceType: 'DiagnosticReport', id: 'existing-dr' });
+
+    const result = await sendLabResult(mockClient, buildLabResult(), mockMapToFHIR);
+
+    expect(result.success).toBe(true);
+    expect(result.skipped).toBe(true);
+    expect(mockFindByBarcode).not.toHaveBeenCalled();
+    expect(mockExecuteFHIRBundle).not.toHaveBeenCalled();
+  });
+
+  it('proceeds normally when no existing DiagnosticReport found', async () => {
+    mockSearchOne.mockResolvedValueOnce(undefined);
+    mockFindByBarcode.mockResolvedValueOnce(sampleMatch);
+    mockExecuteFHIRBundle.mockResolvedValueOnce({
+      resourceType: 'Bundle',
+      type: 'transaction-response',
+      entry: [
+        { response: { status: '201 Created', location: 'Observation/obs-1/_history/1' } },
+      ],
+    });
+
+    const result = await sendLabResult(mockClient, buildLabResult(), mockMapToFHIR);
+
+    expect(result.success).toBe(true);
+    expect(result.skipped).toBeUndefined();
+    expect(mockSearchOne).toHaveBeenCalledWith('DiagnosticReport', {
+      identifier: 'http://medimind.ge/fhir/identifier/lis-message-id|MSG-001',
+    });
+  });
+
+  it('continues normally when idempotency check throws', async () => {
+    mockSearchOne.mockRejectedValueOnce(new Error('Network error'));
+    mockFindByBarcode.mockResolvedValueOnce(sampleMatch);
+    mockExecuteFHIRBundle.mockResolvedValueOnce({
+      resourceType: 'Bundle',
+      type: 'transaction-response',
+      entry: [],
+    });
+
+    const result = await sendLabResult(mockClient, buildLabResult(), mockMapToFHIR);
+
+    expect(result.success).toBe(true);
+  });
+
+  it('skips idempotency check when messageId is empty', async () => {
+    const labResult = buildLabResult({ messageId: '' });
+    mockFindByBarcode.mockResolvedValueOnce(sampleMatch);
+    mockExecuteFHIRBundle.mockResolvedValueOnce({
+      resourceType: 'Bundle',
+      type: 'transaction-response',
+      entry: [],
+    });
+
+    await sendLabResult(mockClient, labResult, mockMapToFHIR);
+
+    expect(mockSearchOne).not.toHaveBeenCalled();
   });
 });

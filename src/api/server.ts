@@ -25,6 +25,12 @@ export interface ServerDeps {
   messages?: MessagesDeps;
   /** Dependencies for the /results endpoint (optional — for EMR result polling) */
   results?: ResultsDeps;
+  /** Optional API key — if set, all endpoints except /health require X-Api-Key header */
+  apiKey?: string;
+  /** Optional CORS origin — defaults to '*' if not set */
+  corsOrigin?: string;
+  /** Optional logger — if provided, used instead of console.error in error handler */
+  logger?: { error: (msg: string, meta?: Record<string, unknown>) => void };
 }
 
 /**
@@ -41,9 +47,9 @@ export function createServer(deps: ServerDeps): express.Express {
 
   // CORS headers — allow MediMind EMR (running in a browser) to call this API
   app.use((_req: Request, res: Response, next: NextFunction) => {
-    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Origin', deps.corsOrigin || '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Api-Key');
 
     if (_req.method === 'OPTIONS') {
       res.sendStatus(204);
@@ -51,6 +57,45 @@ export function createServer(deps: ServerDeps): express.Express {
     }
     next();
   });
+
+  // Simple rate limiter — 100 requests per minute per IP
+  const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+  const RATE_LIMIT = 100;
+  const RATE_WINDOW_MS = 60_000;
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+    const entry = rateLimitMap.get(ip);
+
+    if (!entry || now > entry.resetAt) {
+      rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
+      return next();
+    }
+
+    entry.count++;
+    if (entry.count > RATE_LIMIT) {
+      res.status(429).json({ error: 'Too many requests — try again later' });
+      return;
+    }
+    next();
+  });
+
+  // API key authentication — protects patient data on the hospital LAN
+  if (deps.apiKey) {
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      // /health is always public (for monitoring tools)
+      if (req.path === '/health' || req.path.startsWith('/health')) {
+        return next();
+      }
+      const key = req.headers['x-api-key'];
+      if (key !== deps.apiKey) {
+        res.status(401).json({ error: 'Unauthorized — missing or invalid API key' });
+        return;
+      }
+      next();
+    });
+  }
 
   // --- Routes ---
   app.use('/health', createHealthRouter(deps.health));
@@ -69,7 +114,11 @@ export function createServer(deps: ServerDeps): express.Express {
 
   // --- Error handler ---
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-    console.error('Unhandled API error:', err.message);
+    if (deps.logger) {
+      deps.logger.error('Unhandled API error', { error: err.message });
+    } else {
+      console.error('Unhandled API error:', err.message);
+    }
     res.status(500).json({ error: 'Internal server error' });
   });
 

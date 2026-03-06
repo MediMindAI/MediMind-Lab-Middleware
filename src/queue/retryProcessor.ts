@@ -39,6 +39,27 @@ export class RetryProcessor {
     const entry = this.queue.dequeueNext();
     if (!entry) return 0;
 
+    await this.processEntry(entry);
+    return 1;
+  }
+
+  /**
+   * Process a batch of pending items from the queue.
+   * Returns the number of items processed.
+   */
+  async processBatch(maxItems: number = 10): Promise<number> {
+    const entries = this.queue.dequeueBatch(maxItems);
+    if (entries.length === 0) return 0;
+
+    for (const entry of entries) {
+      await this.processEntry(entry);
+    }
+
+    return entries.length;
+  }
+
+  /** Send a single queue entry to the sender and mark result accordingly. */
+  private async processEntry(entry: { id: number; payload: string }): Promise<void> {
     const labResult = JSON.parse(entry.payload) as LabResult;
 
     try {
@@ -53,15 +74,13 @@ export class RetryProcessor {
       const message = err instanceof Error ? err.message : 'Unknown error';
       this.queue.markFailed(entry.id, message);
     }
-
-    return 1;
   }
 
   /** Start periodic processing at the given interval (in ms). */
   start(intervalMs: number): void {
     if (this.timer) return; // already running
     this.timer = setInterval(() => {
-      void this.processOnce();
+      void this.processBatch();
     }, intervalMs);
   }
 

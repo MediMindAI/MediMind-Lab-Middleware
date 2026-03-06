@@ -6,6 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { randomBytes } from 'node:crypto';
 import { MessageLogger, type NewMessageLogEntry } from './messageLogger.js';
 
 // ---------------------------------------------------------------------------
@@ -225,5 +226,80 @@ describe('MessageLogger', () => {
 
     const result = logger.getMessageById(id);
     expect(result!.errorMessage).toBe('Connection refused');
+  });
+
+  // --- Encryption ---
+
+  describe('with encryption', () => {
+    const TEST_KEY = randomBytes(32).toString('hex');
+    let encLogger: MessageLogger;
+
+    beforeEach(() => {
+      encLogger = new MessageLogger(':memory:', TEST_KEY);
+    });
+
+    afterEach(() => {
+      encLogger.close();
+    });
+
+    it('encrypts rawContent on insert and decrypts on read (round-trip)', () => {
+      const entry = buildEntry({ rawContent: 'Patient: John Doe, WBC=7.5' });
+      const id = encLogger.logMessage(entry);
+
+      const result = encLogger.getMessageById(id);
+      expect(result!.rawContent).toBe('Patient: John Doe, WBC=7.5');
+    });
+
+    it('stores encrypted (not plaintext) data in SQLite', () => {
+      const plaintext = 'H|\\^&||SysmexXN||||||LIS2-A2|P|1|20260305\r';
+      const id = encLogger.logMessage(buildEntry({ rawContent: plaintext }));
+
+      // Read the raw row directly from SQLite — it should NOT be plaintext
+      const rawRow = encLogger.getRawDb()
+        .prepare('SELECT raw_content FROM message_log WHERE id = ?')
+        .get(id) as { raw_content: string };
+
+      expect(rawRow.raw_content).not.toBe(plaintext);
+    });
+
+    it('decrypts rawContent in queryMessages results', () => {
+      const entry = buildEntry({ rawContent: 'Sensitive PHI data' });
+      encLogger.logMessage(entry);
+
+      const results = encLogger.queryMessages();
+      expect(results).toHaveLength(1);
+      expect(results[0].rawContent).toBe('Sensitive PHI data');
+    });
+  });
+
+  // --- pruneOldMessages ---
+
+  describe('pruneOldMessages', () => {
+    it('deletes messages older than the specified days', () => {
+      // Insert a message with a timestamp 100 days ago
+      logger.logMessage(buildEntry({ timestamp: '2025-11-01T10:00:00.000Z' }));
+      // Insert a recent message
+      logger.logMessage(buildEntry({ timestamp: '2026-03-05T10:00:00.000Z' }));
+
+      const deleted = logger.pruneOldMessages(90);
+
+      expect(deleted).toBe(1);
+      expect(logger.getCount()).toBe(1);
+    });
+
+    it('keeps recent messages intact', () => {
+      logger.logMessage(buildEntry({ timestamp: '2026-03-05T10:00:00.000Z' }));
+      logger.logMessage(buildEntry({ timestamp: '2026-03-04T10:00:00.000Z' }));
+
+      const deleted = logger.pruneOldMessages(7);
+
+      expect(deleted).toBe(0);
+      expect(logger.getCount()).toBe(2);
+    });
+
+    it('returns 0 when no messages match', () => {
+      const deleted = logger.pruneOldMessages(30);
+      expect(deleted).toBe(0);
+    });
   });
 });

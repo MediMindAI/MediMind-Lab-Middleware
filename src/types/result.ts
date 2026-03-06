@@ -22,6 +22,8 @@ export interface ComponentResult {
   flag: ResultFlag;
   /** Result status */
   status: 'preliminary' | 'final' | 'corrected';
+  /** LOINC code from analyzer mapping (e.g., "6690-2") — optional */
+  loincCode?: string;
 }
 
 /** Abnormal result flags */

@@ -1,18 +1,19 @@
 /**
  * Tests for the analyzer mapping registry.
  *
- * Verifies that all 9 analyzers are registered, that lookups work correctly,
+ * Verifies that all 10 analyzers are registered, that lookups work correctly,
  * and that unknown analyzer IDs return null.
  */
 import { describe, it, expect } from 'vitest';
 import { getMappingForAnalyzer, getRegisteredAnalyzerIds } from './index.js';
 
 describe('analyzer mapping registry', () => {
-  it('should have all 9 analyzers registered', () => {
+  it('should have all 10 analyzers registered', () => {
     const ids = getRegisteredAnalyzerIds();
-    expect(ids).toHaveLength(9);
+    expect(ids).toHaveLength(10);
     expect(ids).toContain('sysmex-xn550');
     expect(ids).toContain('mindray-bc3510');
+    expect(ids).toContain('mindray-bc7600');
     expect(ids).toContain('roche-cobas-c111');
     expect(ids).toContain('roche-cobas-e411');
     expect(ids).toContain('roche-hitachi');

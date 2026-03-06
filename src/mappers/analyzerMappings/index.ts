@@ -10,6 +10,7 @@
 import type { AnalyzerMapping } from './types.js';
 import { sysmexXN550Mapping } from './sysmex-xn550.js';
 import { mindrayBC3510Mapping } from './mindray-bc3510.js';
+import { mindrayBC7600Mapping } from './mindray-bc7600.js';
 import { rocheCobasC111Mapping } from './roche-cobas-c111.js';
 import { rocheCobasE411Mapping } from './roche-cobas-e411.js';
 import { rocheHitachiMapping } from './roche-hitachi.js';
@@ -27,6 +28,7 @@ import { combilyzer13Mapping } from './combilyzer-13.js';
 const registry: Record<string, AnalyzerMapping> = {
   'sysmex-xn550': sysmexXN550Mapping,
   'mindray-bc3510': mindrayBC3510Mapping,
+  'mindray-bc7600': mindrayBC7600Mapping,
   'roche-cobas-c111': rocheCobasC111Mapping,
   'roche-cobas-e411': rocheCobasE411Mapping,
   'roche-hitachi': rocheHitachiMapping,

@@ -81,4 +81,61 @@ describe('ResultStore', () => {
     expect(store.get('12345678')).toBeNull();
     expect(store.size).toBe(0);
   });
+
+  // --- evictExpired ---
+
+  describe('evictExpired', () => {
+    const ONE_HOUR = 60 * 60 * 1000;
+    const TWENTY_FIVE_HOURS = 25 * ONE_HOUR;
+
+    it('evicts entries older than the TTL', () => {
+      store.add(buildResult({ specimenBarcode: 'OLD' }));
+      // Simulate this entry being added 25 hours ago
+      store.setTimestamp('OLD', Date.now() - TWENTY_FIVE_HOURS);
+
+      const evicted = store.evictExpired(24 * ONE_HOUR);
+
+      expect(evicted).toBe(1);
+      expect(store.get('OLD')).toBeNull();
+      expect(store.size).toBe(0);
+    });
+
+    it('keeps recent entries alive', () => {
+      store.add(buildResult({ specimenBarcode: 'RECENT' }));
+
+      const evicted = store.evictExpired(24 * ONE_HOUR);
+
+      expect(evicted).toBe(0);
+      expect(store.get('RECENT')).toHaveLength(1);
+      expect(store.size).toBe(1);
+    });
+
+    it('evicts old but keeps recent in same pass', () => {
+      store.add(buildResult({ specimenBarcode: 'OLD' }));
+      store.add(buildResult({ specimenBarcode: 'RECENT' }));
+      store.setTimestamp('OLD', Date.now() - TWENTY_FIVE_HOURS);
+
+      const evicted = store.evictExpired(24 * ONE_HOUR);
+
+      expect(evicted).toBe(1);
+      expect(store.get('OLD')).toBeNull();
+      expect(store.get('RECENT')).toHaveLength(1);
+      expect(store.size).toBe(1);
+    });
+
+    it('returns 0 when nothing to evict', () => {
+      const evicted = store.evictExpired();
+      expect(evicted).toBe(0);
+    });
+
+    it('uses default 24-hour TTL when no argument provided', () => {
+      store.add(buildResult({ specimenBarcode: 'OLD' }));
+      store.setTimestamp('OLD', Date.now() - TWENTY_FIVE_HOURS);
+
+      // Default TTL is 24 hours — 25-hour-old entry should be evicted
+      const evicted = store.evictExpired();
+
+      expect(evicted).toBe(1);
+    });
+  });
 });

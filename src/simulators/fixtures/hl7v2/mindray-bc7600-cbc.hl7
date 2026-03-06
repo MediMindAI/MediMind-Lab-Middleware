@@ -1,0 +1,57 @@
+# Mindray BC-7600 — Complete Blood Count with 5-Part Differential + Reticulocytes + CRP
+#
+# This fixture represents a complete HL7v2 ORU^R01 message from a Mindray BC-7600
+# hematology line. The BC-7600 is a 5-part differential analyzer (NEU, LYM, MON,
+# EOS, BAS), with optional reticulocyte analysis and CRP module.
+#
+# Protocol: HL7 v2.3.1 over MLLP (0x0B start, 0x1C 0x0D end)
+# Transport: TCP/IP via LabXpert middleware software
+# Direction: Analyzer -> Middleware (unsolicited result)
+# Message type: ORU^R01 (Observation Result Unsolicited)
+#
+# Connection: LabXpert acts as TCP client, our middleware is TCP server on port 5001
+#
+# This fixture includes a mix of normal and abnormal values:
+#   WBC HIGH (H), HGB LOW (L), NEU# HIGH (H), EOS# HIGH (H),
+#   HCT LOW (L), MCV LOW (L), MCH LOW (L), MCHC LOW (L),
+#   RDW-CV HIGH (H), IMG% HIGH (H), CRP HIGH (H)
+#   All others normal (N)
+#
+# 32 total OBX segments matching the mindray-bc7600 analyzer mapping.
+
+MSH|^~\&|BC-7600|MAIN_LAB|MediMind|HOSPITAL|20260306140000||ORU^R01|BC7600-00107|P|2.3.1|||AL|NE
+PID|1||PAT002^^^HOSP||KAPANADZE^NINO||19920714|F
+PV1|1|O
+OBR|1|87654321|87654321|CBC^Complete Blood Count 5-Part Diff^L|||20260306135500||||||||||||||20260306140000||HM|F
+OBX|1|NM|WBC^WBC^L|1|13.2|10*9/L|4.0-10.0|H|||F|||20260306140000
+OBX|2|NM|NEU#^Neutrophils^L|1|8.9|10*9/L|2.0-7.0|H|||F|||20260306140000
+OBX|3|NM|NEU%^Neutrophils %^L|1|67.4|%|40-70|N|||F|||20260306140000
+OBX|4|NM|LYM#^Lymphocytes^L|1|2.6|10*9/L|1.0-3.0|N|||F|||20260306140000
+OBX|5|NM|LYM%^Lymphocytes %^L|1|19.7|%|20-40|L|||F|||20260306140000
+OBX|6|NM|MON#^Monocytes^L|1|0.8|10*9/L|0.2-1.0|N|||F|||20260306140000
+OBX|7|NM|MON%^Monocytes %^L|1|6.1|%|3-10|N|||F|||20260306140000
+OBX|8|NM|EOS#^Eosinophils^L|1|0.7|10*9/L|0.0-0.5|H|||F|||20260306140000
+OBX|9|NM|EOS%^Eosinophils %^L|1|5.3|%|0-5|H|||F|||20260306140000
+OBX|10|NM|BAS#^Basophils^L|1|0.05|10*9/L|0.0-0.1|N|||F|||20260306140000
+OBX|11|NM|BAS%^Basophils %^L|1|0.4|%|0-1|N|||F|||20260306140000
+OBX|12|NM|RBC^RBC^L|1|3.95|10*12/L|4.0-5.5|L|||F|||20260306140000
+OBX|13|NM|HGB^Hemoglobin^L|1|105|g/L|120-170|L|||F|||20260306140000
+OBX|14|NM|HCT^Hematocrit^L|1|32.1|%|36-50|L|||F|||20260306140000
+OBX|15|NM|MCV^MCV^L|1|78.5|fL|80-100|L|||F|||20260306140000
+OBX|16|NM|MCH^MCH^L|1|25.3|pg|27-34|L|||F|||20260306140000
+OBX|17|NM|MCHC^MCHC^L|1|310|g/L|320-360|L|||F|||20260306140000
+OBX|18|NM|RDW-CV^RDW-CV^L|1|17.2|%|11.5-14.5|H|||F|||20260306140000
+OBX|19|NM|RDW-SD^RDW-SD^L|1|52.1|fL|35.0-56.0|N|||F|||20260306140000
+OBX|20|NM|PLT^Platelets^L|1|245|10*9/L|150-400|N|||F|||20260306140000
+OBX|21|NM|MPV^MPV^L|1|9.8|fL|7.4-10.4|N|||F|||20260306140000
+OBX|22|NM|PDW^PDW^L|1|12.3|fL|9.0-17.0|N|||F|||20260306140000
+OBX|23|NM|PCT^PCT^L|1|0.24|%|0.10-0.28|N|||F|||20260306140000
+OBX|24|NM|NRBC#^Nucleated RBC^L|1|0.00|10*9/L|0.00-0.00|N|||F|||20260306140000
+OBX|25|NM|NRBC%^NRBC %^L|1|0.0|/100WBC|0.0-0.0|N|||F|||20260306140000
+OBX|26|NM|RET#^Reticulocytes^L|1|0.065|10*12/L|0.02-0.10|N|||F|||20260306140000
+OBX|27|NM|RET%^Reticulocytes %^L|1|1.6|%|0.5-2.5|N|||F|||20260306140000
+OBX|28|NM|IRF^Immature Reticulocyte Fraction^L|1|8.5|%|2.0-17.0|N|||F|||20260306140000
+OBX|29|NM|IMG#^Immature Granulocytes^L|1|0.05|10*9/L|0.00-0.10|N|||F|||20260306140000
+OBX|30|NM|IMG%^Immature Granulocytes %^L|1|0.8|%|0.0-0.5|H|||F|||20260306140000
+OBX|31|NM|CRP^C-Reactive Protein^L|1|12.4|mg/L|0.0-5.0|H|||F|||20260306140000
+OBX|32|NM|HS-CRP^High-Sensitivity CRP^L|1|12.4|mg/L|0.0-3.0|H|||F|||20260306140000

@@ -312,6 +312,21 @@ describe('parseCombilyzerOutput', () => {
     expect(result.rawOutput).toBe(input);
   });
 
+  it('returns raw timestamp when not exactly 14 digits', () => {
+    const input = [
+      'H|\\^&|||Combilyzer13|||||||P|1|2026-03-05',
+      'P|1',
+      'O|1|12345678||^^^UA|R|||||A',
+      'R|1|^^^GLU|Negative||mg/dL||N||F',
+      'L|1|N',
+    ].join('\n');
+
+    const result = parseCombilyzerOutput(input);
+
+    // "2026-03-05" is 10 chars, not 14, so returned as-is
+    expect(result.dateTime).toBe('2026-03-05');
+  });
+
   it('handles UBG value of 0.2 as normal', () => {
     const input = [
       'H|\\^&|||Combilyzer13|||||||P|1|20260305120000',

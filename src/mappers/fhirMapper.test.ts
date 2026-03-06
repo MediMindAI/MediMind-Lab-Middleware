@@ -71,12 +71,21 @@ describe('mapLabResultToFHIR', () => {
     expect(result.diagnosticReport.resourceType).toBe('DiagnosticReport');
   });
 
-  it('should set Observation resourceType and status to preliminary', () => {
+  it('should set Observation resourceType and status to preliminary by default', () => {
     const result = mapLabResultToFHIR(makeLabResult());
     const obs = result.observations[0];
 
     expect(obs.resourceType).toBe('Observation');
     expect(obs.status).toBe('preliminary');
+  });
+
+  // ─── UUID v4 format (Task 3.10) ──────────────────────────────
+
+  it('should generate IDs matching UUID v4 format', () => {
+    const result = mapLabResultToFHIR(makeLabResult());
+    const obs = result.observations[0];
+    const uuidV4Regex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+    expect(obs.id).toMatch(uuidV4Regex);
   });
 
   // ─── Observation category ──────────────────────────────────────
@@ -369,9 +378,24 @@ describe('mapLabResultToFHIR', () => {
     expect(result.observations[0].basedOn).toBeUndefined();
   });
 
+  // ─── Patient reference (Task 1.6) ──────────────────────────────
+
+  it('should set subject reference on Observation when patientRef is provided', () => {
+    const result = mapLabResultToFHIR(makeLabResult(), undefined, undefined, 'Patient/pat-123');
+    const obs = result.observations[0];
+
+    expect(obs.subject).toEqual({ reference: 'Patient/pat-123' });
+  });
+
+  it('should omit subject on Observation when patientRef is not provided', () => {
+    const result = mapLabResultToFHIR(makeLabResult());
+
+    expect(result.observations[0].subject).toBeUndefined();
+  });
+
   // ─── DiagnosticReport ──────────────────────────────────────────
 
-  it('should create a DiagnosticReport with status preliminary', () => {
+  it('should create a DiagnosticReport with status preliminary when components are preliminary', () => {
     const result = mapLabResultToFHIR(makeLabResult());
 
     expect(result.diagnosticReport.status).toBe('preliminary');
@@ -509,5 +533,175 @@ describe('mapLabResultToFHIR', () => {
     const ids = result.observations.map((o) => o.id);
 
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('uses "Laboratory Results" as fallback when analyzerId is empty', () => {
+    const lab = makeLabResult({ analyzerId: '' });
+    const result = mapLabResultToFHIR(lab);
+    expect(result.diagnosticReport.code.text).toBe('Laboratory Results');
+  });
+
+  it('omits lis-message-id extension when messageId is empty', () => {
+    const lab = makeLabResult({ messageId: '' });
+    const result = mapLabResultToFHIR(lab);
+    const ext = result.observations[0].extension!;
+    const msgId = ext.find((e) => e.url === LIS_EXTENSIONS.MESSAGE_ID);
+    expect(msgId).toBeUndefined();
+  });
+
+  it('uses flag string as display for unknown interpretation flags', () => {
+    const lab = makeLabResult({
+      components: [makeComponent({ flag: 'ZZ' as any })],
+    });
+    const result = mapLabResultToFHIR(lab);
+    const interp = result.observations[0].interpretation;
+    expect(interp![0].coding![0].display).toBe('ZZ');
+  });
+
+  // ─── Patient reference on DiagnosticReport (Task 1.6) ─────────
+
+  it('should set subject on DiagnosticReport when patientRef is provided', () => {
+    const result = mapLabResultToFHIR(makeLabResult(), undefined, undefined, 'Patient/pat-123');
+
+    expect(result.diagnosticReport.subject).toEqual({ reference: 'Patient/pat-123' });
+  });
+
+  it('should omit subject on DiagnosticReport when patientRef is not provided', () => {
+    const result = mapLabResultToFHIR(makeLabResult());
+
+    expect(result.diagnosticReport.subject).toBeUndefined();
+  });
+
+  // ─── LOINC codes in Observations (Task 2.1) ──────────────────
+
+  it('should add LOINC coding when component has loincCode', () => {
+    const lab = makeLabResult({
+      components: [makeComponent({ loincCode: '6690-2' })],
+    });
+    const result = mapLabResultToFHIR(lab);
+    const coding = result.observations[0].code.coding;
+
+    expect(coding).toHaveLength(2);
+    expect(coding![0].code).toBe('WBC');
+    expect(coding![0].system).toBeUndefined();
+    expect(coding![1].system).toBe('http://loinc.org');
+    expect(coding![1].code).toBe('6690-2');
+    expect(coding![1].display).toBe('White Blood Cell Count');
+  });
+
+  it('should have only one coding entry when component has no loincCode', () => {
+    const lab = makeLabResult({
+      components: [makeComponent()],
+    });
+    const result = mapLabResultToFHIR(lab);
+    const coding = result.observations[0].code.coding;
+
+    expect(coding).toHaveLength(1);
+    expect(coding![0].code).toBe('WBC');
+  });
+
+  // ─── Status from analyzer (Task 2.2) ──────────────────────────
+
+  it('should set Observation status to final when component status is final', () => {
+    const lab = makeLabResult({
+      components: [makeComponent({ status: 'final' })],
+    });
+    const result = mapLabResultToFHIR(lab);
+    expect(result.observations[0].status).toBe('final');
+  });
+
+  it('should set Observation status to corrected when component status is corrected', () => {
+    const lab = makeLabResult({
+      components: [makeComponent({ status: 'corrected' })],
+    });
+    const result = mapLabResultToFHIR(lab);
+    expect(result.observations[0].status).toBe('corrected');
+  });
+
+  it('should set DiagnosticReport status to final when all components are final', () => {
+    const lab = makeLabResult({
+      components: [
+        makeComponent({ status: 'final' }),
+        makeComponent({ testCode: 'RBC', status: 'final' }),
+      ],
+    });
+    const result = mapLabResultToFHIR(lab);
+    expect(result.diagnosticReport.status).toBe('final');
+  });
+
+  it('should set DiagnosticReport status to corrected when any component is corrected', () => {
+    const lab = makeLabResult({
+      components: [
+        makeComponent({ status: 'final' }),
+        makeComponent({ testCode: 'RBC', status: 'corrected' }),
+      ],
+    });
+    const result = mapLabResultToFHIR(lab);
+    expect(result.diagnosticReport.status).toBe('corrected');
+  });
+
+  it('should set DiagnosticReport status to preliminary for mixed statuses', () => {
+    const lab = makeLabResult({
+      components: [
+        makeComponent({ status: 'final' }),
+        makeComponent({ testCode: 'RBC', status: 'preliminary' }),
+      ],
+    });
+    const result = mapLabResultToFHIR(lab);
+    expect(result.diagnosticReport.status).toBe('preliminary');
+  });
+
+  // ─── Reference range with negative numbers (Task 2.7) ─────────
+
+  it('should parse "-2.0-2.0" into low -2.0 and high 2.0', () => {
+    const lab = makeLabResult({
+      components: [makeComponent({ referenceRange: '-2.0-2.0', unit: 'mmol/L' })],
+    });
+    const result = mapLabResultToFHIR(lab);
+    const range = result.observations[0].referenceRange![0];
+
+    expect(range.low!.value).toBe(-2.0);
+    expect(range.high!.value).toBe(2.0);
+    expect(range.text).toBe('-2.0-2.0');
+  });
+
+  it('should parse "-2.0\u20132.0" (en-dash) into low -2.0 and high 2.0', () => {
+    const lab = makeLabResult({
+      components: [makeComponent({ referenceRange: '-2.0\u20132.0', unit: 'mmol/L' })],
+    });
+    const result = mapLabResultToFHIR(lab);
+    const range = result.observations[0].referenceRange![0];
+
+    expect(range.low!.value).toBe(-2.0);
+    expect(range.high!.value).toBe(2.0);
+  });
+
+  it('should still parse "4.5-11.0" correctly after regex fix', () => {
+    const lab = makeLabResult({
+      components: [makeComponent({ referenceRange: '4.5-11.0', unit: '10*3/uL' })],
+    });
+    const result = mapLabResultToFHIR(lab);
+    const range = result.observations[0].referenceRange![0];
+
+    expect(range.low!.value).toBe(4.5);
+    expect(range.high!.value).toBe(11.0);
+  });
+
+  // ─── Idempotency identifier on DiagnosticReport (Task 3.5) ────
+
+  it('should set identifier on DiagnosticReport with messageId', () => {
+    const lab = makeLabResult({ messageId: 'MSG-001' });
+    const result = mapLabResultToFHIR(lab);
+
+    expect(result.diagnosticReport.identifier).toEqual([
+      { system: 'http://medimind.ge/fhir/identifier/lis-message-id', value: 'MSG-001' },
+    ]);
+  });
+
+  it('should omit identifier on DiagnosticReport when messageId is empty', () => {
+    const lab = makeLabResult({ messageId: '' });
+    const result = mapLabResultToFHIR(lab);
+
+    expect(result.diagnosticReport.identifier).toBeUndefined();
   });
 });

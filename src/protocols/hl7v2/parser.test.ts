@@ -210,5 +210,39 @@ describe('parseORU', () => {
       expect(result.msh.messageControlId).toBe('MSG001');
       expect(result.obx).toHaveLength(1);
     });
+
+    it('handles OBR with very few fields', () => {
+      const msg =
+        'MSH|^~\\&|App|Fac|Recv|RFac|20260305||ORU^R01|M1|P|2.3.1\r' +
+        'OBR|1\r' +
+        'OBX|1|NM|WBC||7.5\r';
+
+      const result = parseORU(msg);
+      expect(result.obr.placerOrderNumber).toBe('');
+      expect(result.obr.fillerOrderNumber).toBe('');
+      expect(result.obr.universalServiceId).toBe('');
+      expect(result.obr.specimenId).toBe('');
+      expect(result.obr.requestedDateTime).toBe('');
+      expect(result.obr.observationDateTime).toBe('');
+      expect(result.obr.resultStatus).toBe('');
+    });
+
+    it('handles OBX with very few fields', () => {
+      const msg =
+        'MSH|^~\\&|App|Fac|Recv|RFac|20260305||ORU^R01|M1|P|2.3.1\r' +
+        'OBR|1|O1|F1|SVC\r' +
+        'OBX|1\r';
+
+      const result = parseORU(msg);
+      expect(result.obx).toHaveLength(1);
+      expect(result.obx[0].valueType).toBe('');
+      expect(result.obx[0].observationId).toBe('');
+      expect(result.obx[0].value).toBe('');
+      expect(result.obx[0].units).toBe('');
+      expect(result.obx[0].referenceRange).toBe('');
+      expect(result.obx[0].abnormalFlags).toBe('');
+      expect(result.obx[0].resultStatus).toBe('');
+      expect(result.obx[0].dateOfObservation).toBe('');
+    });
   });
 });

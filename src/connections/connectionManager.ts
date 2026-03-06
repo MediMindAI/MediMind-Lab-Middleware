@@ -16,6 +16,7 @@ import type { AnalyzerConfig, AnalyzerStatus } from '../types/analyzer.js';
 import type { IConnection } from './types.js';
 import { SerialConnection, type SerialPortFactory } from './serialConnection.js';
 import { TcpConnection } from './tcpConnection.js';
+import { TcpServerConnection } from './tcpServerConnection.js';
 
 interface ManagedAnalyzer {
   config: AnalyzerConfig;
@@ -62,6 +63,9 @@ export class ConnectionManager extends EventEmitter {
   private createConnection(config: AnalyzerConfig): IConnection {
     if (config.connection === 'serial') {
       return new SerialConnection(config, this.serialFactory);
+    }
+    if (config.connection === 'tcp-server') {
+      return new TcpServerConnection(config);
     }
     return new TcpConnection(config);
   }

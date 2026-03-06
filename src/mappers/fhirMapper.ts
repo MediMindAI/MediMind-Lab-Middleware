@@ -6,6 +6,7 @@
  * world can read. Each test value becomes an Observation, and they all get bundled
  * into one DiagnosticReport envelope.
  */
+import { randomUUID } from 'node:crypto';
 import type { Observation, DiagnosticReport, Extension } from '@medplum/fhirtypes';
 import type { LabResult, ComponentResult, ResultFlag } from '../types/result.js';
 import { LIS_EXTENSIONS } from '../fhir/types.js';
@@ -22,6 +23,8 @@ const OBSERVATION_CATEGORY_SYSTEM = 'http://terminology.hl7.org/CodeSystem/obser
 const DIAGNOSTIC_CATEGORY_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0074';
 const INTERPRETATION_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation';
 const UCUM_SYSTEM = 'http://unitsofmeasure.org';
+const LOINC_SYSTEM = 'http://loinc.org';
+const LIS_MESSAGE_ID_SYSTEM = 'http://medimind.ge/fhir/identifier/lis-message-id';
 
 const INTERPRETATION_DISPLAY: Record<string, string> = {
   N: 'Normal',
@@ -44,17 +47,19 @@ const INTERPRETATION_DISPLAY: Record<string, string> = {
 export function mapLabResultToFHIR(
   labResult: LabResult,
   specimenRef?: string,
-  serviceRequestRef?: string
+  serviceRequestRef?: string,
+  patientRef?: string
 ): FHIRMappingResult {
   const observations = labResult.components.map((comp) =>
-    buildObservation(comp, labResult, specimenRef, serviceRequestRef)
+    buildObservation(comp, labResult, specimenRef, serviceRequestRef, patientRef)
   );
 
   const diagnosticReport = buildDiagnosticReport(
     labResult,
     observations,
     specimenRef,
-    serviceRequestRef
+    serviceRequestRef,
+    patientRef
   );
 
   return { observations, diagnosticReport };
@@ -62,16 +67,32 @@ export function mapLabResultToFHIR(
 
 // ─── Observation builder ───────────────────────────────────────
 
+/** Map component status to FHIR Observation status */
+function mapObservationStatus(status?: ComponentResult['status']): Observation['status'] {
+  if (status === 'final') return 'final';
+  if (status === 'corrected') return 'corrected';
+  return 'preliminary';
+}
+
 function buildObservation(
   comp: ComponentResult,
   lab: LabResult,
   specimenRef?: string,
-  serviceRequestRef?: string
+  serviceRequestRef?: string,
+  patientRef?: string
 ): Observation {
+  // Build code.coding — always include the proprietary code, add LOINC if available
+  const codings: { system?: string; code: string; display: string }[] = [
+    { code: comp.testCode, display: comp.testName },
+  ];
+  if (comp.loincCode) {
+    codings.push({ system: LOINC_SYSTEM, code: comp.loincCode, display: comp.testName });
+  }
+
   const obs: Observation = {
     resourceType: 'Observation',
-    id: generateUUID(),
-    status: 'preliminary',
+    id: randomUUID(),
+    status: mapObservationStatus(comp.status),
     category: [
       {
         coding: [{ system: OBSERVATION_CATEGORY_SYSTEM, code: 'laboratory', display: 'Laboratory' }],
@@ -79,7 +100,7 @@ function buildObservation(
       },
     ],
     code: {
-      coding: [{ code: comp.testCode, display: comp.testName }],
+      coding: codings,
       text: comp.testName,
     },
     effectiveDateTime: lab.testDateTime,
@@ -114,21 +135,35 @@ function buildObservation(
   if (serviceRequestRef) {
     obs.basedOn = [{ reference: serviceRequestRef }];
   }
+  if (patientRef) {
+    obs.subject = { reference: patientRef };
+  }
 
   return obs;
 }
 
 // ─── DiagnosticReport builder ──────────────────────────────────
 
+/** Derive DiagnosticReport status from component statuses */
+function deriveReportStatus(components: ComponentResult[]): DiagnosticReport['status'] {
+  if (components.length === 0) return 'preliminary';
+  const allFinal = components.every((c) => c.status === 'final');
+  if (allFinal) return 'final';
+  const anyCorrected = components.some((c) => c.status === 'corrected');
+  if (anyCorrected) return 'corrected';
+  return 'preliminary';
+}
+
 function buildDiagnosticReport(
   lab: LabResult,
   observations: Observation[],
   specimenRef?: string,
-  serviceRequestRef?: string
+  serviceRequestRef?: string,
+  patientRef?: string
 ): DiagnosticReport {
   const report: DiagnosticReport = {
     resourceType: 'DiagnosticReport',
-    status: 'preliminary',
+    status: deriveReportStatus(lab.components),
     category: [
       {
         coding: [{ system: DIAGNOSTIC_CATEGORY_SYSTEM, code: 'LAB', display: 'Laboratory' }],
@@ -140,11 +175,19 @@ function buildDiagnosticReport(
     issued: lab.receivedAt,
   };
 
+  // Idempotency identifier — used to detect duplicate submissions
+  if (lab.messageId) {
+    report.identifier = [{ system: LIS_MESSAGE_ID_SYSTEM, value: lab.messageId }];
+  }
+
   if (specimenRef) {
     report.specimen = [{ reference: specimenRef }];
   }
   if (serviceRequestRef) {
     report.basedOn = [{ reference: serviceRequestRef }];
+  }
+  if (patientRef) {
+    report.subject = { reference: patientRef };
   }
 
   return report;
@@ -195,8 +238,8 @@ function parseReferenceRange(
 
   const trimmed = raw.trim();
 
-  // Try "X-Y" pattern (e.g., "4.5-11.0" or "4.5 - 11.0")
-  const rangeMatch = trimmed.match(/^([\d.]+)\s*-\s*([\d.]+)$/);
+  // Try "X-Y" pattern (e.g., "4.5-11.0", "4.5 - 11.0", "-2.0-2.0", "-2.0–2.0")
+  const rangeMatch = trimmed.match(/^(-?[\d.]+)\s*[-–]\s*(-?[\d.]+)$/);
   if (rangeMatch) {
     const low = parseFloat(rangeMatch[1]);
     const high = parseFloat(rangeMatch[2]);
@@ -229,11 +272,3 @@ function parseReferenceRange(
   return { text: raw };
 }
 
-/** Generate a simple UUID v4 for Observation IDs */
-function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}

@@ -154,4 +154,115 @@ describe('LocalQueue', () => {
       queue.enqueue(makeLabResult({ messageId: 'dup' }));
     }).toThrow();
   });
+
+  it('enqueueRaw stores raw payload for retry', () => {
+    const id = queue.enqueueRaw('retry-msg-001', 'sysmex-xn550', '{"test":"data"}');
+    expect(id).toBeGreaterThan(0);
+
+    const entry = queue.dequeueNext();
+    expect(entry).not.toBeNull();
+    expect(entry!.messageId).toBe('retry-msg-001');
+    expect(entry!.analyzerId).toBe('sysmex-xn550');
+    expect(entry!.payload).toBe('{"test":"data"}');
+  });
+
+  // ── Task 3.4a: dequeueNext sets status to 'processing' ─────────
+
+  it('dequeueNext sets status to processing', () => {
+    queue.enqueue(makeLabResult({ messageId: 'proc-test' }));
+
+    const entry = queue.dequeueNext();
+    expect(entry).not.toBeNull();
+    expect(entry!.status).toBe('processing');
+
+    // Verify the row in the database is actually 'processing'
+    // (dequeueNext won't return it again since it's no longer 'pending')
+    expect(queue.dequeueNext()).toBeNull();
+    // And it's not counted as pending
+    expect(queue.getPendingCount()).toBe(0);
+  });
+
+  // ── Task 3.4b: dequeueBatch ──────────────────────────────────────
+
+  describe('dequeueBatch', () => {
+    it('returns up to N items, all set to processing', () => {
+      queue.enqueue(makeLabResult({ messageId: 'batch-1' }));
+      queue.enqueue(makeLabResult({ messageId: 'batch-2' }));
+      queue.enqueue(makeLabResult({ messageId: 'batch-3' }));
+
+      const entries = queue.dequeueBatch(2);
+      expect(entries).toHaveLength(2);
+      expect(entries[0].status).toBe('processing');
+      expect(entries[1].status).toBe('processing');
+
+      // Only 1 item left pending
+      expect(queue.getPendingCount()).toBe(1);
+    });
+
+    it('returns empty array when queue is empty', () => {
+      const entries = queue.dequeueBatch(5);
+      expect(entries).toEqual([]);
+    });
+
+    it('returns fewer items if less than maxItems are pending', () => {
+      queue.enqueue(makeLabResult({ messageId: 'only-one' }));
+
+      const entries = queue.dequeueBatch(10);
+      expect(entries).toHaveLength(1);
+      expect(entries[0].messageId).toBe('only-one');
+    });
+
+    it('does not return items already in processing status', () => {
+      queue.enqueue(makeLabResult({ messageId: 'first-grab' }));
+      queue.enqueue(makeLabResult({ messageId: 'second-grab' }));
+
+      // First batch grabs both
+      const batch1 = queue.dequeueBatch(10);
+      expect(batch1).toHaveLength(2);
+
+      // Second batch should be empty — both are 'processing'
+      const batch2 = queue.dequeueBatch(10);
+      expect(batch2).toEqual([]);
+    });
+  });
+
+  // ── Task 3.4c: purgeSent ─────────────────────────────────────────
+
+  describe('purgeSent', () => {
+    it('deletes old sent entries', () => {
+      const id = queue.enqueue(makeLabResult({ messageId: 'old-sent' }));
+      queue.markSent(id);
+
+      // Manually backdate the last_attempt_at to 10 days ago for testing
+      // (purgeSent checks last_attempt_at)
+      queue['db'].prepare(`
+        UPDATE queue SET last_attempt_at = datetime('now', '-10 days') WHERE id = ?
+      `).run(id);
+
+      const deleted = queue.purgeSent(7);
+      expect(deleted).toBe(1);
+    });
+
+    it('keeps recent sent entries', () => {
+      const id = queue.enqueue(makeLabResult({ messageId: 'recent-sent' }));
+      queue.markSent(id);
+      // last_attempt_at is now (just marked sent), so purging older than 7 days keeps it
+
+      const deleted = queue.purgeSent(7);
+      expect(deleted).toBe(0);
+    });
+
+    it('does not delete non-sent entries', () => {
+      queue.enqueue(makeLabResult({ messageId: 'still-pending' }));
+
+      // Backdate the pending entry
+      queue['db'].prepare(`
+        UPDATE queue SET last_attempt_at = datetime('now', '-10 days') WHERE message_id = ?
+      `).run('still-pending');
+
+      const deleted = queue.purgeSent(7);
+      expect(deleted).toBe(0);
+      expect(queue.getPendingCount()).toBe(1);
+    });
+  });
 });

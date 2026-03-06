@@ -1,0 +1,40 @@
+{
+  "_readme": "BC-7600 only — default config for initial deployment. Copy to analyzers.json.",
+
+  "analyzers": [
+    {
+      "id": "mindray-bc7600",
+      "name": "Mindray BC-7600",
+      "protocol": "hl7v2",
+      "connection": "tcp-server",
+      "listenPort": 5001,
+      "listenHost": "0.0.0.0",
+      "enabled": true
+    }
+  ],
+
+  "medplum": {
+    "baseUrl": "https://api.medplum.com",
+    "projectId": "71c7841a-7f47-4029-8ab4-0bf62751c173",
+    "clientId": "c7d601b8-758f-4c90-b4dd-2fe8e1d66973",
+    "clientSecret": "PASTE_YOUR_SECRET_HERE"
+  },
+
+  "api": {
+    "port": 3001,
+    "host": "0.0.0.0"
+  },
+
+  "queue": {
+    "dbPath": "./data/queue.db",
+    "retryIntervalMs": 30000,
+    "maxRetries": 10
+  },
+
+  "logging": {
+    "level": "info",
+    "dir": "./logs",
+    "maxFiles": 30,
+    "maxSizeMb": 50
+  }
+}

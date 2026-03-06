@@ -7,7 +7,7 @@
 export type AnalyzerProtocol = 'astm' | 'hl7v2' | 'siemens-lis3' | 'combilyzer';
 
 /** Supported connection types */
-export type ConnectionType = 'serial' | 'tcp';
+export type ConnectionType = 'serial' | 'tcp' | 'tcp-server';
 
 /** Serial port configuration */
 export interface SerialConfig {
@@ -19,11 +19,18 @@ export interface SerialConfig {
   stopBits: 1 | 2;
 }
 
-/** TCP/IP connection configuration */
+/** TCP/IP connection configuration (client mode — we connect TO the analyzer) */
 export interface TcpConfig {
   connection: 'tcp';
   host: string;
   tcpPort: number;
+}
+
+/** TCP server configuration (server mode — the analyzer connects TO us) */
+export interface TcpServerConfig {
+  connection: 'tcp-server';
+  listenPort: number;
+  listenHost?: string;
 }
 
 /** Base analyzer configuration */
@@ -41,8 +48,11 @@ export interface SerialAnalyzer extends AnalyzerBase, SerialConfig {}
 /** Analyzer with TCP connection */
 export interface TcpAnalyzer extends AnalyzerBase, TcpConfig {}
 
+/** Analyzer with TCP server connection (analyzer dials in to us) */
+export interface TcpServerAnalyzer extends AnalyzerBase, TcpServerConfig {}
+
 /** Any analyzer configuration */
-export type AnalyzerConfig = SerialAnalyzer | TcpAnalyzer;
+export type AnalyzerConfig = SerialAnalyzer | TcpAnalyzer | TcpServerAnalyzer;
 
 /** Connection status for monitoring */
 export interface AnalyzerStatus {

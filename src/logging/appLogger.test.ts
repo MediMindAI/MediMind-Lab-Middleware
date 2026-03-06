@@ -92,6 +92,15 @@ describe('createAppLogger', () => {
     }).not.toThrow();
   });
 
+  it('formats log message without extra metadata', () => {
+    logger = createAppLogger(config);
+
+    // Verifies the console format branch where Object.keys(meta) is empty
+    expect(() => {
+      logger!.info('plain message');
+    }).not.toThrow();
+  });
+
   it('respects log level — debug transport spy not called when level is error', () => {
     logger = createAppLogger({ ...config, level: 'error' });
 

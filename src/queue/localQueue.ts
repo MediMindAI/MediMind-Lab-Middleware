@@ -94,6 +94,7 @@ export class LocalQueue {
   /**
    * Get the next item ready for retry.
    * Returns the oldest pending entry whose nextRetryAt is now or in the past.
+   * Atomically sets its status to 'processing' so no other processor grabs it.
    * Returns null if nothing is due.
    */
   dequeueNext(): QueueEntry | null {
@@ -108,12 +109,15 @@ export class LocalQueue {
 
     if (!row) return null;
 
+    // Atomically mark as processing so no other processor picks it up
+    this.db.prepare(`UPDATE queue SET status = 'processing' WHERE id = ?`).run(row.id);
+
     return {
       id: row.id as number,
       messageId: row.message_id as string,
       analyzerId: row.analyzer_id as string,
       payload: row.payload as string,
-      status: row.status as QueueEntry['status'],
+      status: 'processing',
       attempts: row.attempts as number,
       maxRetries: row.max_retries as number,
       lastAttemptAt: row.last_attempt_at as string | null,
@@ -121,6 +125,42 @@ export class LocalQueue {
       createdAt: row.created_at as string,
       error: row.error as string | null,
     };
+  }
+
+  /**
+   * Get up to N items ready for retry, each atomically set to 'processing'.
+   * More efficient than calling dequeueNext() in a loop.
+   */
+  dequeueBatch(maxItems: number = 10): QueueEntry[] {
+    const rows = this.db.prepare(`
+      SELECT id, message_id, analyzer_id, payload, status, attempts,
+             max_retries, last_attempt_at, next_retry_at, created_at, error
+      FROM queue
+      WHERE status = 'pending' AND next_retry_at <= datetime('now')
+      ORDER BY next_retry_at ASC, id ASC
+      LIMIT ?
+    `).all(maxItems) as Record<string, unknown>[];
+
+    if (rows.length === 0) return [];
+
+    // Mark all selected items as processing
+    const ids = rows.map((r) => r.id as number);
+    const placeholders = ids.map(() => '?').join(',');
+    this.db.prepare(`UPDATE queue SET status = 'processing' WHERE id IN (${placeholders})`).run(...ids);
+
+    return rows.map((row) => ({
+      id: row.id as number,
+      messageId: row.message_id as string,
+      analyzerId: row.analyzer_id as string,
+      payload: row.payload as string,
+      status: 'processing' as const,
+      attempts: row.attempts as number,
+      maxRetries: row.max_retries as number,
+      lastAttemptAt: row.last_attempt_at as string | null,
+      nextRetryAt: row.next_retry_at as string | null,
+      createdAt: row.created_at as string,
+      error: row.error as string | null,
+    }));
   }
 
   /** Mark a queue entry as successfully sent. */
@@ -182,6 +222,18 @@ export class LocalQueue {
       "SELECT COUNT(*) as count FROM queue WHERE status = 'failed'"
     ).get() as { count: number };
     return row.count;
+  }
+
+  /**
+   * Delete sent entries older than N days.
+   * Returns the number of rows deleted.
+   */
+  purgeSent(olderThanDays: number): number {
+    const result = this.db.prepare(`
+      DELETE FROM queue
+      WHERE status = 'sent' AND last_attempt_at <= datetime('now', '-' || ? || ' days')
+    `).run(olderThanDays);
+    return result.changes;
   }
 
   /** Close the database connection. */
