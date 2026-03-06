@@ -21,11 +21,14 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install production dependencies
-        run: npm ci --omit=dev
+      - name: Install all dependencies (includes TypeScript for build)
+        run: npm ci
 
       - name: Compile TypeScript
         run: npx tsc
+
+      - name: Reinstall production-only dependencies
+        run: npm ci --omit=dev
 
       - name: Create release directory structure
         shell: pwsh
