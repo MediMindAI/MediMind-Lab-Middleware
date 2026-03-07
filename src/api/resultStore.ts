@@ -15,6 +15,9 @@
 
 import type { LabResult } from '../types/result.js';
 
+/** Maximum number of barcodes to keep in the store before forced eviction */
+const MAX_ENTRIES = 10_000;
+
 export class ResultStore {
   /** Barcode → array of LabResults (one barcode can have results from multiple analyzers) */
   private store = new Map<string, LabResult[]>();
@@ -26,6 +29,11 @@ export class ResultStore {
   add(result: LabResult): void {
     const barcode = result.specimenBarcode;
     if (!barcode) return;
+
+    // Guard: evict expired entries when store exceeds max size
+    if (this.store.size >= MAX_ENTRIES) {
+      this.evictExpired();
+    }
 
     const existing = this.store.get(barcode) ?? [];
     existing.push(result);

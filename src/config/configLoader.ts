@@ -41,6 +41,12 @@ export function loadConfig(): AppConfig {
       throw new Error(`Invalid API_PORT: "${process.env.API_PORT}" is not a number`);
     }
   }
+  if (process.env.API_KEY) {
+    rawConfig.api.apiKey = process.env.API_KEY;
+  }
+  if (process.env.CORS_ORIGIN) {
+    rawConfig.api.corsOrigin = process.env.CORS_ORIGIN;
+  }
   if (process.env.LOG_LEVEL) {
     rawConfig.logging.level = process.env.LOG_LEVEL;
   }

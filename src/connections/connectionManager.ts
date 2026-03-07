@@ -191,7 +191,8 @@ export class ConnectionManager extends EventEmitter {
     this.reconnectAttempts.set(id, attempts);
 
     try {
-      // Create a fresh connection and re-wire events
+      // Remove old listeners to prevent leak, then create a fresh connection
+      managed.connection.removeAllListeners();
       managed.connection = this.createConnection(managed.config);
       this.wireEvents(id, managed);
 

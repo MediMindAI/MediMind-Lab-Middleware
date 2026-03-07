@@ -80,6 +80,8 @@ export interface AppConfig {
   api: {
     port: number;
     host: string;
+    apiKey?: string;
+    corsOrigin?: string;
   };
   queue: {
     dbPath: string;

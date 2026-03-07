@@ -19,6 +19,25 @@
 
 ---
 
+## Current Build Status (2026-03-06)
+
+- **Branch:** `043-lab-middleware` — all 83 tasks complete
+- **Codebase:** 49 source files, 48 test files (509 tests passing)
+- **Coverage:** 98.66% statements, 90.45% branches, 99.05% functions, 100% lines
+- **E2E verified:** Simulated BC-7600 CBC → middleware → 33 FHIR resources created in Medplum Cloud
+- **Release:** GitHub Actions workflow ready, trigger with `git tag v*` + `git push --tags`
+- **Phase:** Middleware standalone complete. Next: implement `RealLISAdapter` in EMR, then hospital deployment.
+
+### Known Gaps
+- **Siemens LIS3 (RapidPoint 500e):** Proprietary protocol, needs vendor spec doc 10844061 — analyzer disabled in config
+- **Combilyzer 13:** Best-effort parser (simplified ASTM-like protocol, no official spec)
+
+### Bugs Fixed (latest commit `cfaa32a`)
+1. **FHIR dateTime format** — HL7v2/ASTM timestamps (`YYYYMMDDHHMMSS`) now converted to ISO 8601 before sending to Medplum
+2. **Silent transaction failures** — `resultSender` now checks per-entry status codes in Medplum's transaction-response bundle instead of blindly reporting success
+
+---
+
 ## The Big Picture — Why This Project Exists
 
 ### The Problem
@@ -483,4 +502,7 @@ Full specification: `specs/043-lab-middleware/spec.md`
 - SQLite (better-sqlite3) for offline queue + message audit log (043-lab-middleware)
 
 ## Recent Changes
-- 043-lab-middleware: Added TypeScript 5.7+ / Node.js 20+ (ESM modules, strict mode) + serialport v12+, express v4, better-sqlite3 v11, @medplum/core v4, winston v3, dotenv v16
+- Fix FHIR dateTime format conversion + silent transaction failure detection (`cfaa32a`)
+- Full E2E test: simulated Mindray BC-7600 → middleware pipeline → 32 Observations + 1 DiagnosticReport in Medplum
+- GitHub release workflow with Windows ZIP packaging
+- 100% line coverage achieved across all 48 test files

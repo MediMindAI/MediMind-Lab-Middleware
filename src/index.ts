@@ -217,6 +217,11 @@ async function main(): Promise<void> {
     results: {
       resultStore,
     },
+    simulate: {
+      pipeline,
+    },
+    apiKey: config.api.apiKey,
+    corsOrigin: config.api.corsOrigin || 'http://localhost:3000',
   });
 
   const server = app.listen(config.api.port, config.api.host, () => {

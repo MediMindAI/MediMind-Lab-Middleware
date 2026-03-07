@@ -15,6 +15,7 @@ import { createHealthRouter, type HealthDeps } from './routes/health.js';
 import { createStatusRouter, type StatusDeps } from './routes/status.js';
 import { createMessagesRouter, type MessagesDeps } from './routes/messages.js';
 import { createResultsRouter, type ResultsDeps } from './routes/results.js';
+import { createSimulateRouter, type SimulateDeps } from './routes/simulate.js';
 
 export interface ServerDeps {
   /** Dependencies for the /health endpoint */
@@ -25,6 +26,8 @@ export interface ServerDeps {
   messages?: MessagesDeps;
   /** Dependencies for the /results endpoint (optional — for EMR result polling) */
   results?: ResultsDeps;
+  /** Dependencies for the /simulate-result endpoint (optional — dev testing only) */
+  simulate?: SimulateDeps;
   /** Optional API key — if set, all endpoints except /health require X-Api-Key header */
   apiKey?: string;
   /** Optional CORS origin — defaults to '*' if not set */
@@ -62,6 +65,16 @@ export function createServer(deps: ServerDeps): express.Express {
   const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
   const RATE_LIMIT = 100;
   const RATE_WINDOW_MS = 60_000;
+
+  // Evict expired rate-limit entries every 5 minutes to prevent unbounded memory growth
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of rateLimitMap) {
+      if (now > entry.resetAt) {
+        rateLimitMap.delete(ip);
+      }
+    }
+  }, 5 * 60_000).unref();
 
   app.use((req: Request, res: Response, next: NextFunction) => {
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
@@ -105,6 +118,9 @@ export function createServer(deps: ServerDeps): express.Express {
   }
   if (deps.results) {
     app.use('/results', createResultsRouter(deps.results));
+  }
+  if (deps.simulate) {
+    app.use('/simulate-result', createSimulateRouter(deps.simulate));
   }
 
   // --- 404 handler ---
